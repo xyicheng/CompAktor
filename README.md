@@ -10,7 +10,15 @@ Initial features will include:
 - Remote Actors
 - An actor manager
 - Actor States
+- Round Robin Router
 - many of the features available in the original actor components in Akka
+
+Feature Wish List (next round of stuff for the backlog):
+
+- Stream Sources and Sinks
+- Graph Stages
+- Clustered Actors
+- More advanced routing techniques
 
 The goal is basically a Python port of Akka which I think is a superior actor system and highyl effective for the 
 many use cases of the system.
