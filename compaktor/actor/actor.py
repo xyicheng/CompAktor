@@ -149,4 +149,85 @@ class BaseActor(AbstractActor):
         item in it so the call to _inbox.get() doesn't block. We don't actually
         have to do anything with it.
         '''
+
+class Stream(asyncio.Protocol):
+                
+    def __init__(self, loop,q):
+        self.loop = loop
+        self.transport = None
+        self.q = q
+            
         
+    def connection_made(self, transport):
+        self.transport = transport
+        
+        
+    def data_received(self, data):
+        for message in data.decode().splitlines():
+            yield self.q.put(message)
+        
+        
+    def connection_lost(self, exc):
+        self.loop.stop()
+
+
+class RemoteActor(AbstractActor):
+    
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._max_inbox_size = kwargs.get('max_inbox_size', 0)
+        self.host = kwargs.get('host','localhost')
+        self.port = kwargs.get('port',9090)
+        
+        #setup a network connection for our actor
+        
+        #inbox needs to change to a distributed queue
+        self._inbox = asyncio.Queue(maxsize=self._max_inbox_size,
+                                    loop=self.loop)
+        self.queue_stream = Stream(self.loop,self._inbox)
+        conn = self.loop.create_connection(self.queue_stream, self.host,
+                                            self.port, loop = self.loop)
+        self._handlers = {}
+
+        # Create handler for the 'poison pill' message
+        self.register_handler(PoisonPill, self._stop_message_handler)
+
+
+    def register_handler(self, message_cls, func):
+        self._handlers[message_cls] = func
+
+    
+    async def _task(self):
+        message = await self._inbox.get()
+        try:
+            handler  = self._handlers[type(message)]
+            is_query = isinstance(message, QueryMessage)
+            try:
+                response = await handler(message)
+            except Exception as ex:
+                if is_query:
+                    message.result.set_exception(ex)
+                else:
+                    logging.warn('Unhandled exception from handler of '
+                        '{0}'.format(type(message)))
+            else:
+                if is_query:
+                    message.result.set_result(response)
+        except KeyError as ex:
+            raise HandlerNotFoundError(type(message)) from ex
+
+    
+    async def _stop(self):
+        await self._receive(PoisonPill())
+
+    
+    async def _receive(self, message):
+        await self._inbox.put(message)
+
+    
+    async def _stop_message_handler(self, message): 
+        '''The stop message is only to ensure that the queue has at least one
+        item in it so the call to _inbox.get() doesn't block. We don't actually
+        have to do anything with it.
+        '''
