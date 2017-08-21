@@ -67,7 +67,7 @@ class ActorSystems():
         else:
             #add actor to path
             current_node.children[name] = actor    
-        
+    
     
     def stop_all_actors(self, actor):
         """
