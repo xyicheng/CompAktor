@@ -33,7 +33,7 @@ class BalancingRouter(BaseActor):
         pass
 
 
-    def route_tell(self, message, sender = self, timeout = 10):
+    async def route_tell(self, message, sender = self, timeout = 10):
         """
         Tell an actor in the ready queue.
         
@@ -47,7 +47,7 @@ class BalancingRouter(BaseActor):
         pass
     
     
-    def route_ask(self, message, sender = self, timeout = 10):
+    async def route_ask(self, message, sender = self, timeout = 10):
         """
         Send and ask request. 
         
@@ -61,7 +61,7 @@ class BalancingRouter(BaseActor):
         pass
     
     
-    def broadcast(self):
+    async def broadcast(self):
         pass
 
 
@@ -100,7 +100,7 @@ class RoundRobinRouter(BaseActor):
             self.actor_set.remove(actor)
     
 
-    def route_tell(self, message, sender = self):
+    async def route_tell(self, message, sender = self):
         """
         Submit a tell request to an actor from the specified sender.
         
@@ -115,7 +115,7 @@ class RoundRobinRouter(BaseActor):
             self.current_index = 0
         
     
-    def route_ask(self, message, sender = self):
+    async def route_ask(self, message, sender = self):
         """
         Send an ask request to an actor in the router.
         
@@ -130,7 +130,7 @@ class RoundRobinRouter(BaseActor):
             self.current_index = 0
     
     
-    def broadcast(self, message, sender = self):
+    async def broadcast(self, message, sender = self):
         """
         Broadcast a message to every actor in the router
         
