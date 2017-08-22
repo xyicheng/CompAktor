@@ -60,7 +60,7 @@ class AddTestActor(BaseActor):
         
     
     def add_test(self,message):
-        return int(message.payload) + 1
+        return int.from_bytes(message.payload, byteorder='big', signed=False) + 1
         
 
 class TestActor(unittest.TestCase):
