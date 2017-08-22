@@ -6,9 +6,17 @@ Created on Aug 19, 2017
 @author: aevans
 '''
 
-
+import itertools
 import sys
+from atomos import atomic
 from compaktor.actor.actor import BaseActor
+from compaktor.actor.message import Message
+
+
+class RouteTell(Message): pass
+    
+
+class RouteAsk(Message): pass
 
 
 class BalancingRouter(BaseActor):
@@ -21,18 +29,27 @@ class BalancingRouter(BaseActor):
     
     
     def __init__(self, actors = [], *args, **kwargs):
+        self.message_timeout = 10
         super.__init__(*args, **kwargs)
         self.ready_queue = list(set(actors))
-
+        self.register_handler(RouteAsk, self.route_ask)
+        self.register_handler(RouteTell, self.route_tell)
+        
         
     def add_actor(self, actor):
         """
-        Add an actor to the 
+        Add an actor to the  
         """
         pass
     
     
     def remove_actor(self,actor):
+        """
+        Remove an actor from the router.
+        
+        :param actor:  The implemented actor to remove
+        :type actor:  BaseActor
+        """
         pass
 
 
@@ -74,7 +91,7 @@ class RoundRobinRouter(BaseActor):
     a set of actors.  Routers do not use handlers.
     """
     actor_set = []
-    current_index = 0
+    current_index = atomic.AtomicInteger()
     
     
     def __init__(self, actors = [], *args, **kwargs):
@@ -102,7 +119,7 @@ class RoundRobinRouter(BaseActor):
             self.actor_set.remove(actor)
     
 
-    async def route_tell(self, message, sender = self):
+    def route_tell(self, message, sender = self):
         """
         Submit a tell request to an actor from the specified sender.
         
@@ -111,13 +128,15 @@ class RoundRobinRouter(BaseActor):
         :param sender:  The sender impmented by the user
         :type sender:  BaseActor
         """
-        sender.tell(self.actor_set[self.current_index],message)
-        self.current_index += 1
-        if self.current_index is len(self.actor_set):
-            self.current_index = 0
+        ind = self.current_index.get()
+        sender.tell(self.actor_set[ind],message)
+        self.current_index.get_and_add(1)
+        if self.current_index.get() is len(self.actor_set):
+            self.current_index.get_and_set(0)
+        
         
     
-    async def route_ask(self, message, sender = self):
+    def route_ask(self, message, sender = self):
         """
         Send an ask request to an actor in the router.
         
@@ -127,9 +146,9 @@ class RoundRobinRouter(BaseActor):
         :type sender:   BaseActor
         """
         sender.ask(self.actor_set[self.current_index],message)
-        self.current_index += 1
-        if self.current_index is len(self.actor_set):
-            self.current_index = 0
+        self.current_index.get_and_add(1)
+        if self.current_index.get() is len(self.actor_set):
+            self.current_index.get_and_set(0)
     
     
     async def broadcast(self, message, sender = self):

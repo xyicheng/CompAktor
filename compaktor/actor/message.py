@@ -8,8 +8,9 @@ Created on Aug 19, 2017
 
 class Message(object):
     
-    def __init__(self, payload = None):
+    def __init__(self, payload = None, sender = None):
         self.payload = payload
+        self.sender = sender
 
     
     def __repr__(self):

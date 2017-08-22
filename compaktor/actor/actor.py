@@ -7,7 +7,6 @@ Created on Aug 18, 2017
 '''
 
 
-
 import asyncio
 import asyncore
 from enum import Enum
@@ -26,6 +25,7 @@ class ActorState(Enum):
     LIMBO = 2
     TERMINATED = 3
     CREATED = 4
+    
 
 class AbstractActor(object):
     
@@ -33,12 +33,13 @@ class AbstractActor(object):
     __STATE = ActorState.CREATED
     
     
-    def __init__(self,name = None, loop = None):
+    def __init__(self,name = None, loop = None, address = None):
         self.loop = asyncio.get_event_loop() if loop is None else loop
         self._name
         self.__STATE = ActorState.LIMBO
         self.__complete = asyncio.Future(loop = self.loop)
         self.__name = name
+        self.__address = address
     
     
     def get_name(self):
