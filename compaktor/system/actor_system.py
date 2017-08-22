@@ -7,6 +7,9 @@ Created on Aug 20, 2017
 '''
 
 
+from threading import Lock
+
+
 class ChildNotFoundException(Exception): pass
 
 
@@ -39,6 +42,7 @@ class ActorSystems():
     
     
     def __init__(self, name):
+        self.__tree_lock = Lock()
         self.__NAME = name
         
     
@@ -50,24 +54,28 @@ class ActorSystems():
         :param name:  The name of the actor which becomes the final path part
         :param path:  The path to search for defaulting to root only
         """
-        current_node = self.__root
-        if path is not None:
-            #add to a specific path if it exists
-            path_parts = path.split('/')
+        self.__tree_lock.acquire()
+        try:
             current_node = self.__root
-            for part in path_parts:
-                if part in current_node.children:
-                    current_node = current_node.children[part]
-                else:
-                    raise ChildNotFoundException("Child not found for path {} in\
-                                                  {}!".format(part,path))    
-        
-        if name in current_node.children:
-            raise ChildNodeExistsException("Child node already exists.  Cannot\
-                                             add to path!")
-        else:
-            #add actor to path
-            current_node.children[name] = actor    
+            if path is not None:
+                #add to a specific path if it exists
+                path_parts = path.split('/')
+                current_node = self.__root
+                for part in path_parts:
+                    if part in current_node.children:
+                        current_node = current_node.children[part]
+                    else:
+                        raise ChildNotFoundException("Child not found for path {} in\
+                                                      {}!".format(part,path))    
+            
+            if name in current_node.children:
+                raise ChildNodeExistsException("Child node already exists.  Cannot\
+                                                 add to path!")
+            else:
+                #add actor to path
+                current_node.children[name] = actor
+        finally:
+            self.__tree_lock.release()    
     
     
     def stop_all_actors(self, actor):
@@ -77,10 +85,14 @@ class ActorSystems():
         :param actor:  The actor subtree root
         :type actor:  ActorTreeNode
         """
-        actor.actor.stop()
-        if actor.children is not None:
-            for actor in actor.children:
-                self.stop_all_actors(actor)
+        self.__tree_lock.acquire
+        try:
+            actor.actor.stop()
+            if actor.children is not None:
+                for actor in actor.children:
+                    self.stop_all_actors(actor)
+        finally:
+            self.__tree_lock.release()
     
     
     def remove_actors(self, path):
@@ -90,22 +102,26 @@ class ActorSystems():
         :param path:  The path to the subtree to remove
         :type path: str
         """
-        if path is None:
-            raise Exception("Path to remove is None but the actor is required.")
-        
-        path_parts = path.split('/')
-        current_node = self.__root
-        parent = current_node
-        for i in range(0, len(path_parts) - 1):
-            part = path_parts[i]
-            if part not in current_node.children:
-                raise ChildNotFoundException("Child node not in {}!".format(path))
+        self.__tree_lock.acquire()
+        try:
+            if path is None:
+                raise Exception("Path to remove is None but the actor is required.")
+            
+            path_parts = path.split('/')
+            current_node = self.__root
             parent = current_node
-            current_node = current_node.children[part]
-        
-        actor_name = path_parts[len(path_parts) - 1]
-        self.stop_all_actors(current_node)
-        del parent[actor_name]
+            for i in range(0, len(path_parts) - 1):
+                part = path_parts[i]
+                if part not in current_node.children:
+                    raise ChildNotFoundException("Child node not in {}!".format(path))
+                parent = current_node
+                current_node = current_node.children[part]
+            
+            actor_name = path_parts[len(path_parts) - 1]
+            self.stop_all_actors(current_node)
+            del parent[actor_name]
+        finally:
+            self.__tree_lock.release()
 
 
     def get_actors_tree(self, path):
@@ -115,6 +131,7 @@ class ActorSystems():
         :param path:  Path to the root of the actors to return
         :return:  The node subtree at the path
         """
+        self.__tree_lock.acquire()
         if path is None:
             raise Exception("Path cannot be null in getting actor subtree.")
         

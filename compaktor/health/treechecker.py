@@ -7,6 +7,8 @@ Created on Aug 21, 2017
 @author: aevans
 '''
 
+
+import asyncio
 from compaktor.actor.actor import ActorState
 
 
@@ -31,9 +33,6 @@ class HeartbeatMonitor(object):
         self.interval = interval
         self.index = 0
         self.current_check_actor = None
-        self.visited = {}
-        self.per_actor = per_actor
-        self.actors_per_check = self.actors_per_check
         self._terminated = []
         self._stopped = []
     
@@ -45,8 +44,8 @@ class HeartbeatMonitor(object):
         :param terminated:  The list of terminated actors
         """
         pass
-    
-    
+                    
+                    
     async def check_running_tree(self, system_path):
         """
         Iterate down the supplied actor tree for a given system. Systems should
@@ -58,32 +57,40 @@ class HeartbeatMonitor(object):
         :type system_path: str
         :return:  A list of stopped and terminated actors
         """
+        terminated = []
+        def check_tree(actor, current_path):
+            if actor.get_state() is ActorState.TERMINATED:
+                actor_path = "{}/{}".format(current_path,actor.get_name())
+                terminated.append(actor_path)
+            
+            
         if system_path in self.actor_system.children:
             pass
-    
-    
-    async def check_running_actors(self,checked_actors):
-        """
-        In this case, the entire tree is searched.  The visited and
-        current_actor variables are used here.
-        """
-        actor = self.current_check_actor
-        if actor.get_state() is ActorState.TERMINATED:
-            self._terminated.append(actor)
-        elif actor.get_state() is ActorState.STOPPED:
-            self._stopped.append(actor)
         
-        for child in actor.children:
-            pass
+        return terminated
+            
 
-
-    async def run(self):
+    async def handle_run(self):
         """
-        Run the heartbeat checker.   
+        A helper async function for run.   
         """
+        terminated = []
         if self.per_actor is False:
             system = self.actor_system.children[self.index]
-            self.check_running_tree(system)
+            terminated = self.check_running_tree(system)
             self.index += 1
-        else:
-            self.check_running_actors(0)
+        return terminated
+    
+    async def run(self):
+        """
+        Run the health checker.
+        """
+        while True:
+            task = asyncio.Task(self.handle_run())
+            #runs on main event loop
+            loop = asyncio.get_event_loop()
+            terminated = await loop.call_later(self.interval, task)
+            
+            if len(terminated) > 0:
+                for actor in terminated:
+                    self.

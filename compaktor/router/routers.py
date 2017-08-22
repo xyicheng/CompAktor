@@ -7,9 +7,10 @@ Created on Aug 19, 2017
 '''
 
 import itertools
+import logging
 import sys
 from atomos import atomic
-from compaktor.actor.actor import BaseActor
+from compaktor.actor.actor import BaseActor, ActorState
 from compaktor.actor.message import Message
 
 
@@ -33,6 +34,7 @@ class BalancingRouter(BaseActor):
     
     def __init__(self, actors = [], *args, **kwargs):
         super.__init__(*args, **kwargs)
+        self.last_active_check = 0
         self.ready_queue = list(set(actors))
         self.register_handler(RouteAsk, self.route_ask)
         self.register_handler(RouteTell, self.route_tell)
@@ -64,7 +66,9 @@ class BalancingRouter(BaseActor):
 
     async def route_tell(self, message):
         """
-        Submit a tell request to an actor from the specified sender.
+        Submit a tell request to an actor from the specified sender.  On the
+        100th call route_tell or route_ask the active queue is cleaned of 
+        dead actors.
         
         :param message:  The message to send
         :type message:  bytearray
@@ -73,7 +77,16 @@ class BalancingRouter(BaseActor):
         actor = None
         while len(self.ready_queue) > 0 and actor is None:
             #get an actor that is ready for work
-            pass
+            actor = self.ready_queue.pop(0)
+            if actor.get_state() is not ActorState.RUNNING:
+                actor = None
+        
+        self.last_active_check += 1
+        if self.last_active_check is 100:
+            for actor in self.active_queue:
+                if actor.get_state() is not ActorState.RUNNING:
+                    self.active_queue.remove(actor)
+            self.last_active_check = 0
 
         sender = None        
         if message.sender is not None:
@@ -96,7 +109,16 @@ class BalancingRouter(BaseActor):
         actor = None
         while len(self.ready_queue) > 0 and actor is None:
             #get an actor that is ready for work
-            pass
+            actor = self.ready_queue.pop(0)
+            if actor.get_state() is not ActorState.RUNNING:
+                actor = None
+        
+        self.last_active_check += 1
+        if self.last_active_check is 100:
+            for actor in self.active_queue:
+                if actor.get_state() is not ActorState.RUNNING:
+                    self.active_queue.remove(actor)
+            self.last_active_check = 0
 
         sender = None        
         if message.sender is not None:
@@ -118,7 +140,14 @@ class BalancingRouter(BaseActor):
         sender = self
         if message.sender is not None:
             sender = message.sender
-            
+        
+        self.last_active_check += 1
+        if self.last_active_check is 100:
+            for actor in self.active_queue:
+                if actor.get_state() is not ActorState.RUNNING:
+                    self.active_queue.remove(actor)
+            self.last_active_check = 0
+        
         for actor in self.actor_set:
             sender.tell(actor, message)
 
