@@ -20,6 +20,7 @@ class ActorTreeNode():
     actor = None
     name = None
     
+    
     def __init__(self, name, actor):
         self.children = {}
         self.actor = None

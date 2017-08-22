@@ -19,6 +19,9 @@ class RouteTell(Message): pass
 class RouteAsk(Message): pass
 
 
+class RouteBroadcast(Message): pass
+
+
 class BalancingRouter(BaseActor):
     """
     The balancing pool router.  Routers do not use handlers. 
@@ -29,18 +32,21 @@ class BalancingRouter(BaseActor):
     
     
     def __init__(self, actors = [], *args, **kwargs):
-        self.message_timeout = 10
         super.__init__(*args, **kwargs)
         self.ready_queue = list(set(actors))
         self.register_handler(RouteAsk, self.route_ask)
         self.register_handler(RouteTell, self.route_tell)
+        self.register_hanlder(RouteBroadcast, self.broadcast)
         
         
     def add_actor(self, actor):
         """
-        Add an actor to the  
+        Add an actor to the ready queue.
+        
+        :param actor:  The actor to add to the queue
         """
-        pass
+        if actor not in self.ready_queue and actor not in self.active_queue:
+            self.ready_queue.append(actor)
     
     
     def remove_actor(self,actor):
@@ -50,39 +56,71 @@ class BalancingRouter(BaseActor):
         :param actor:  The implemented actor to remove
         :type actor:  BaseActor
         """
-        pass
+        if actor in self.ready_queue:
+            self.ready_queue.remove(actor)
+        elif actor in self.active_queue:
+            self.active_queue.remove(actor)
 
 
-    async def route_tell(self, message, sender = self, timeout = 10):
+    async def route_tell(self, message):
         """
-        Tell an actor in the ready queue.
+        Submit a tell request to an actor from the specified sender.
         
         :param message:  The message to send
         :type message:  bytearray
-        :param sender:  The implemented actor routing the message
-        :type sender:  BaseActor
-        :param timeout:  The timeout to wait for in seconds
-        :type timeout:  int
         """
-        pass
+        sender = self
+        actor = None
+        while len(self.ready_queue) > 0 and actor is None:
+            #get an actor that is ready for work
+            pass
+
+        sender = None        
+        if message.sender is not None:
+            sender = message.sender
+        else:
+            sender = actor
+        
+        if actor is not None:
+            actor.tell(sender, message)
+        
     
-    
-    async def route_ask(self, message, sender = self, timeout = 10):
+    async def route_ask(self, message):
         """
-        Send and ask request. 
+        Send an ask request to an actor in the router.
         
         :param message:  The message to send
         :type message:  bytearray
-        :param sender:  The implemented sending actor
-        :type sender:  BaseActor
-        :param timeout:  The timeout to wait before failing
-        :type timeout:  int
         """
-        pass
+        sender = self
+        actor = None
+        while len(self.ready_queue) > 0 and actor is None:
+            #get an actor that is ready for work
+            pass
+
+        sender = None        
+        if message.sender is not None:
+            sender = message.sender
+        else:
+            sender = actor
+        
+        if actor is not None:
+            actor.ask(sender, message)
     
     
-    async def broadcast(self):
-        pass
+    async def broadcast(self, message):
+        """
+        Broadcast a message to every actor in the router
+        
+        :param message:   Data message to send 
+        :type message:  The message
+        """
+        sender = self
+        if message.sender is not None:
+            sender = message.sender
+            
+        for actor in self.actor_set:
+            sender.tell(actor, message)
 
 
 class RoundRobinRouter(BaseActor):
@@ -119,15 +157,17 @@ class RoundRobinRouter(BaseActor):
             self.actor_set.remove(actor)
     
 
-    def route_tell(self, message, sender = self):
+    async def route_tell(self, message):
         """
         Submit a tell request to an actor from the specified sender.
         
         :param message:  The message to send
         :type message:  bytearray
-        :param sender:  The sender impmented by the user
-        :type sender:  BaseActor
         """
+        sender = self
+        if message.sender is not None:
+            sender = message.sender
+            
         ind = self.current_index.get()
         sender.tell(self.actor_set[ind],message)
         self.current_index.get_and_add(1)
@@ -136,27 +176,32 @@ class RoundRobinRouter(BaseActor):
         
         
     
-    def route_ask(self, message, sender = self):
+    async def route_ask(self, message):
         """
         Send an ask request to an actor in the router.
         
         :param message:  The message to send
         :type message:  bytearray
-        :param sender:  The sender actor implemented from an actor class
-        :type sender:   BaseActor
         """
+        sender = self
+        if message.sender is not None:
+            sender = message.sender
         sender.ask(self.actor_set[self.current_index],message)
         self.current_index.get_and_add(1)
         if self.current_index.get() is len(self.actor_set):
             self.current_index.get_and_set(0)
     
     
-    async def broadcast(self, message, sender = self):
+    async def broadcast(self, message):
         """
         Broadcast a message to every actor in the router
         
-        :param sender:   The user implemented sender actor 
-        :type sender: BaseActor
+        :param message:   Data message to send 
+        :type message:  The message
         """
+        sender = self
+        if message.sender is not None:
+            sender = message.sender
+            
         for actor in self.actor_set:
             sender.tell(actor, message)
