@@ -12,48 +12,86 @@ Created on Aug 19, 2017
 import asyncio
 from multiprocessing import Process
 import socket
+import unittest
+import aiounittest
 from compaktor.actor.actor import BaseActor
 from compaktor.actor.message import Message
 
 
-#Define new message classes, and register handlers for them in your actors.
 class StringMessage(Message): pass
 
-def write_to_connection(host = 'localhost', port = 9090, loop = None):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.connect(('',9090))
-        sock.send(bytearray("Hello World!","utf-8"))
-    
-    
-def create_actor_test():
-    
-    # Define actors that respond to Message subclasses with custom behavior.
-    class PrintActor(BaseActor):
 
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.register_handler(StringMessage,
-                                  self._string_message_handler)
+class IntMessage(Message): pass
+
+
+class ObjectMessage(Message): pass
+
+
+class ObjectTestActor(BaseActor):
     
     
+    def __init__(self, *args, **kwargs):
+        super.__init__(*args, **kwargs)
+        self.register_handler(StringMessage, self.print_status)
         
-        def _string_message_handler(self, message):
-            print(message.payload)
-            
+    
+    def print_status(self,message):
+        print(message.payload) 
+
+
+class StringTestActor(BaseActor):
+    
+    
+    def __init__(self, *args, **kwargs):
+        super.__init__(*args, **kwargs)
+        self.register_handler(StringMessage, self.print_status)
         
-    async def say_hello():
+    
+    def print_status(self,message):
+        print(message.payload) 
+    
+
+class AddTestActor(BaseActor):
+    
+    
+    def __init__(self, *args, **kwargs):
+        super.__init__(*args, **kwargs)
+        self.register_handler(IntMessage, self.add_test)
+        
+    
+    def add_test(self,message):
+        return int(message.payload) + 1
+        
+
+class TestActor(unittest.TestCase):
+    
+    
+    def test_setup(self):
+        """
+        The base actor takes your string and prints it.  Nothing is returned.
+        A pass means that nothing faild.
+        """
         a = BaseActor()
-        b = PrintActor()
-        a.start()
-        b.start()
-        for _ in range(10):
-            message = StringMessage('Hello world!')
-            await asyncio.sleep(0.25)
-            await a.tell(b, message)
-        await a.stop()
-        await b.stop()
+        b = StringTestActor()
+        
+        
+    def test_serialization(self):
+        """
+        This uses the object message to ensure serialization.  
+        """        
+        pass
+    
 
-    asyncio.get_event_loop().run_until_complete(say_hello())
+class TestActorSystem(unittest.TestCase): pass
+
+
+class TestRoundRobinRouter(unittest.TestCase): pass
+
+
+class TestBalancingRouter(unittest.TestCase): pass
+
+
+class HealthCheckTester(unittest.TestCase): pass
 
 
 if __name__ == "__main__":

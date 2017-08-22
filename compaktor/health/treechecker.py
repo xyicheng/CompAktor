@@ -9,6 +9,7 @@ Created on Aug 21, 2017
 
 
 import asyncio
+import logging
 from compaktor.actor.actor import ActorState
 
 
@@ -35,17 +36,8 @@ class HeartbeatMonitor(object):
         self.current_check_actor = None
         self._terminated = []
         self._stopped = []
-    
-    
-    def handle_not_running(self, terminated):
-        """
-        Iterates down the terminated list and removes the terminated actors.
-        
-        :param terminated:  The list of terminated actors
-        """
-        pass
                     
-                    
+       
     async def check_running_tree(self, system_path):
         """
         Iterate down the supplied actor tree for a given system. Systems should
@@ -60,16 +52,21 @@ class HeartbeatMonitor(object):
         terminated = []
         def check_tree(actor, current_path):
             if actor.get_state() is ActorState.TERMINATED:
-                actor_path = "{}/{}".format(current_path,actor.get_name())
+                actor_path = "{}/{}".format(current_path, actor.get_name())
+                self.remove_ators(actor_path)
                 terminated.append(actor_path)
+            else:
+                for child in actor.children:
+                    actor_path = "{}/{}".format(current_path, child.get_name())
+                    terminated.extend(check_tree(child, actor_path))
             
             
         if system_path in self.actor_system.children:
-            pass
+            check_tree(self.actor_system[system_path], system_path)
         
         return terminated
             
-
+    
     async def handle_run(self):
         """
         A helper async function for run.   
@@ -81,6 +78,7 @@ class HeartbeatMonitor(object):
             self.index += 1
         return terminated
     
+    
     async def run(self):
         """
         Run the health checker.
@@ -90,7 +88,3 @@ class HeartbeatMonitor(object):
             #runs on main event loop
             loop = asyncio.get_event_loop()
             terminated = await loop.call_later(self.interval, task)
-            
-            if len(terminated) > 0:
-                for actor in terminated:
-                    self.
