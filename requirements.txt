@@ -1,2 +1,3 @@
 aiounittest>=1.1
 atomos>=0.3
+janus>=0.3

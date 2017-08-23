@@ -35,10 +35,9 @@ class AbstractActor(object):
     
     def __init__(self,name = None, loop = None, address = None):
         self.loop = asyncio.get_event_loop() if loop is None else loop
-        self._name
+        self.__name = name
         self.__STATE = ActorState.LIMBO
         self.__complete = asyncio.Future(loop = self.loop)
-        self.__name = name
         self.__address = address
     
     
@@ -103,19 +102,20 @@ class AbstractActor(object):
     async def ask(self, target, message):
         assert isinstance(message, QueryMessage)
         if not message.result:
-            message.result = asyncio.Future(loop = self._loop)
-          
+            message.result = asyncio.Future(loop = self.loop)
         await self.tell(target, message)
-        return (await message.result)
+        res = await message.result
+        return res 
 
 
 class BaseActor(AbstractActor):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.loop = kwargs.get('loop', self.loop)
         self._max_inbox_size = kwargs.get('max_inbox_size', 0)
-        self._inbox = asyncio.Queue(maxsize=self._max_inbox_size,
-                                    loop=self.loop)
+        self._inbox = kwargs.get('queue', asyncio.Queue(maxsize=
+                                self._max_inbox_size, loop = self.loop))
         self._handlers = {}
 
         # Create handler for the 'poison pill' message
@@ -137,7 +137,7 @@ class BaseActor(AbstractActor):
                 if is_query:
                     message.result.set_exception(ex)
                 else:
-                    logging.warn('Unhandled exception from handler of '
+                    logging.warning('Unhandled exception from handler of '
                         '{0}'.format(type(message)))
             else:
                 if is_query:

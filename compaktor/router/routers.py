@@ -6,11 +6,15 @@ Created on Aug 19, 2017
 @author: aevans
 '''
 
+
+import asyncio
 import itertools
 import logging
+import random
 import sys
 from atomos import atomic
-from compaktor.actor.actor import BaseActor, ActorState
+import janus
+from compaktor.actor.actor import BaseActor, ActorState, QueryMessage
 from compaktor.actor.message import Message
 
 
@@ -23,9 +27,169 @@ class RouteAsk(Message): pass
 class RouteBroadcast(Message): pass
 
 
-class BalancingRouter(BaseActor):
+class BalancingRouter(BaseActor): 
     """
-    The balancing pool router.  Routers do not use handlers. 
+    The balancing router uses a single message queue to route messages to 
+    actors.  Every actor shares the common queue.  This requires reworking
+    the actors to allow a special blocking queue.
+    """
+    
+    
+    def __init__(self, actors = [], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.actors = actors
+        self.max_inbox_size = kwargs.get('max_inbox_size',0)
+        self._queue = janus.Queue(maxsize = self.max_inbox_size,
+                                    loop = self.loop)
+        raise Exception("Not Implemented Yet")
+    
+    
+    def create_actor(self, actor_ref):
+        """
+        Add an actor to the ready queue.
+        
+        :param actor:  The actor ref to instantiatable code implementing Base Actor
+        :type actor:  reference
+        """
+        args = []
+        kwargs = {"loop" : self.loop, "queue" : self._queue}
+        actor = actor_ref(*args)
+        if actor not in self.actors:
+            self.actors.append(actor)
+    
+    
+    def remove_actor(self,actor):
+        """
+        Remove an actor from the router.
+        
+        :param actor:  The implemented actor to remove
+        :type actor:  BaseActor
+        """
+        if actor not in self.actors:
+            self.actors.remove(actor)
+    
+    
+    async def route_ask(self, message):
+        """
+        Send an ask request to the queue.  The queue calls must block. 
+        """
+        assert isinstance(message, QueryMessage)
+        if not message.result:
+            message.result = asyncio.Future(loop = self.loop)
+        await self._queue.put(message)
+        res = await message.result
+        return res 
+    
+    
+    async def route_tell(self, message):
+        """
+        Send a tell request to the queue.  The queue calls on the actor should block.
+        """
+        self._queue._put(message)
+        
+    
+    async def attempt_broadcast(self, message):
+        """
+        'Broadcast' a message to all actors in the router.  At the moment this just pushes
+        a message on the queue per actor so broadcast itself is not correct.
+        """ 
+        for actor in self.actors:
+            self._queue._put(message)
+    
+    
+class RandomRouter(BaseActor): 
+    """
+    Makes a random choice from the pool of actors and routes to the actor.
+    """
+    
+    
+    def __init__(self, actors = [], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.actors = list(set(actors))
+        self.register_handler(RouteAsk, self.route_ask)
+        self.register_handler(RouteTell, self.route_tell)
+        self.register_hanlder(RouteBroadcast, self.broadcast)
+        
+        
+    def add_actor(self, actor):
+        """
+        Add an actor to the ready queue.
+        
+        :param actor:  The actor to add to the queue
+        """
+        if actor not in self.actors:
+            self.actors.append(actor)
+    
+    
+    def remove_actor(self,actor):
+        """
+        Remove an actor from the router.
+        
+        :param actor:  The implemented actor to remove
+        :type actor:  BaseActor
+        """
+        if actor not in self.actors:
+            self.actors.remove(actor)
+
+
+    async def route_tell(self, message):
+        """
+        Submit a tell request to an actor from the specified sender.  On the
+        100th call route_tell or route_ask the active queue is cleaned of 
+        dead actors.
+        
+        :param message:  The message to send
+        :type message:  bytearray
+        """
+        actor = random.choice(self.actors)
+        
+        sender = message.sender        
+        if sender is None:
+            sender = self
+        
+        sender.tell(actor, message)
+            
+    
+    async def route_ask(self, message):
+        """
+        Send an ask request to an actor in the router.
+        
+        :param message:  The message to send
+        :type message:  bytearray
+        """
+        actor = random.choice(self.actors)
+        sender = message.sender
+        if sender is None:
+            sender = self
+        sender.ask(sender, message)
+        
+    
+    async def broadcast(self, message):
+        """
+        Broadcast a message to every actor in the router
+        
+        :param message:   Data message to send 
+        :type message:  The message
+        """
+        sender = self
+        if message.sender is not None:
+            sender = message.sender
+        
+        self.last_active_check += 1
+        if self.last_active_check is 100:
+            for actor in self.active_queue:
+                if actor.get_state() is not ActorState.RUNNING:
+                    self.active_queue.remove(actor)
+            self.last_active_check = 0
+        
+        for actor in self.actor_set:
+            sender.tell(actor, message)
+
+
+class OnReadyRouter(BaseActor):
+    """
+    This router sends tasks to actors when an actor is ready.  When no actor is
+    available, the current task is pushed back on the queue.  
     """
     
     ready_queue = []
@@ -81,21 +245,25 @@ class BalancingRouter(BaseActor):
             if actor.get_state() is not ActorState.RUNNING:
                 actor = None
         
-        self.last_active_check += 1
-        if self.last_active_check is 100:
-            for actor in self.active_queue:
-                if actor.get_state() is not ActorState.RUNNING:
-                    self.active_queue.remove(actor)
-            self.last_active_check = 0
-
-        sender = None        
-        if message.sender is not None:
-            sender = message.sender
-        else:
-            sender = actor
         
-        if actor is not None:
-            actor.tell(sender, message)
+        if actor is None:
+            self.last_active_check += 1
+            if self.last_active_check is 100:
+                for actor in self.active_queue:
+                    if actor.get_state() is not ActorState.RUNNING:
+                        self.active_queue.remove(actor)
+                self.last_active_check = 0
+    
+            sender = None        
+            if message.sender is not None:
+                sender = message.sender
+            else:
+                sender = actor
+            
+            if actor is not None:
+                actor.tell(sender, message)
+        else:
+            self._inbox.put(message)
         
     
     async def route_ask(self, message):
@@ -113,21 +281,24 @@ class BalancingRouter(BaseActor):
             if actor.get_state() is not ActorState.RUNNING:
                 actor = None
         
-        self.last_active_check += 1
-        if self.last_active_check is 100:
-            for actor in self.active_queue:
-                if actor.get_state() is not ActorState.RUNNING:
-                    self.active_queue.remove(actor)
-            self.last_active_check = 0
-
-        sender = None        
-        if message.sender is not None:
-            sender = message.sender
+        if actor is not None:    
+            self.last_active_check += 1
+            if self.last_active_check is 100:
+                for actor in self.active_queue:
+                    if actor.get_state() is not ActorState.RUNNING:
+                        self.active_queue.remove(actor)
+                self.last_active_check = 0
+    
+            sender = None        
+            if message.sender is not None:
+                sender = message.sender
+            else:
+                sender = actor
+            
+            if actor is not None:
+                actor.ask(sender, message)
         else:
-            sender = actor
-        
-        if actor is not None:
-            actor.ask(sender, message)
+            self._inbox.put(message)
     
     
     async def broadcast(self, message):
