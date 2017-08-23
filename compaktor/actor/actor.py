@@ -20,6 +20,15 @@ class HandlerNotFoundError(Exception): pass
 
 
 class ActorState(Enum):
+    """
+    The state of the actors.  The following states exist.
+    
+    - STOPPED:  The actor is stopped after running but post_stop was not called
+    - RUNNING:  The actor is running
+    - LIMBO:  The actor is starting but not yet started
+    - TERMINATED:  The actor has been terminated and post_stop called
+    - CREATED:  The actor is created but not started
+    """
     STOPPED = 0
     RUNNING = 1
     LIMBO = 2
@@ -28,6 +37,9 @@ class ActorState(Enum):
     
 
 class AbstractActor(object):
+    """
+    The basis for all actors is the AbstractActor
+    """
     
     
     __STATE = ActorState.CREATED
@@ -51,6 +63,7 @@ class AbstractActor(object):
     
     def pre_start(self):
         logging.debug("Starting Actor {}".format(time.time()))
+        self.__STATE = ActorState.CREATED
 
     
     def start(self):
@@ -82,6 +95,7 @@ class AbstractActor(object):
      
     def post_stop(self):
         logging.debug("Actor Stopped {}".format(time.time()))
+        self.__STATE = ActorState.TERMINATED
     
     
     def post_restart(self):
@@ -109,6 +123,10 @@ class AbstractActor(object):
 
 
 class BaseActor(AbstractActor):
+    """
+    The base actor implementing the AbstractActor class.
+    """
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
