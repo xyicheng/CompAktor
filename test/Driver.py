@@ -13,6 +13,7 @@ import asyncio
 from multiprocessing import Process
 import socket
 import unittest
+from unittest import TestSuite
 import aiounittest
 from compaktor.actor.actor import BaseActor
 from compaktor.actor.message import Message, QueryMessage
@@ -74,7 +75,7 @@ class AddTestActor(BaseActor):
 class ActorTest(unittest.TestCase):    
     
     
-    '''
+    
     def test_serialization(self):
         """
         This uses the object message to ensure serialization.  
@@ -181,9 +182,7 @@ class ActorTest(unittest.TestCase):
             await test_helper()
         
         asyncio.get_event_loop().run_until_complete(test())
-        
-        print("Load test Complete")
-    '''
+    
     
     def test_load_ask(self):
         """
@@ -192,25 +191,198 @@ class ActorTest(unittest.TestCase):
         then calls are made between them asynchronously.  Multiprocessing is
         avoided 
         """
+        num_actors = 100000
+        async def message(a,b):
+            return await a.ask(b, AddIntMessage(1))
+        
+        
+        async def test_helper():  
+            string_actors = []
+            calling_actors = []
+            for i in range(0,num_actors):
+                a = AddTestActor()
+                a.start()
+                b = BaseActor()
+                b.start()
+                string_actors.append(a)
+                calling_actors.append(b)
+            
+            #create our tests
+            connections = []
+            for i in range(0,len(calling_actors)):
+                connections.append((calling_actors[i], string_actors[i], i))
+            
+            print("Executing Ask Load Test")
+            results = await asyncio.gather(*[message(connection[0], connection[1]) for connection in connections])
+            print("Done Executing Tell Load Test")
+            
+            print("Stopping Ask Actors")
+            for i in range(0, len(calling_actors)):
+                await calling_actors[i].stop()
+                await string_actors[i].stop()
+                
+            print("Checking Sum")
+            self.assertEqual(sum(results) / 2, num_actors)
+        
+        async def test():
+            await test_helper()
+        
+        asyncio.get_event_loop().run_until_complete(test())
+        
+        
+        def runTest(self):
+            self.test_add()
+            self.test_hello()
+            self.test_load_ask()
+            self.test_load_tell()
+            self.test_serialization()
+            self.test_setup()
+
+
+class ActorSystemTest(unittest.TestCase): 
+    
+    
+    def test_actor_addition(self):
+        pass
+    
+    
+    def test_actor_removal(self):
+        pass
+    
+    
+    def test_branch_creation(self):
+        pass
+    
+    
+    def test_branch_removal(self):
         pass
 
-class ActorSystemTest(unittest.TestCase): pass
+    
+    def test_stress_add(self):
+        pass
+    
+    
+    def test_stress_add_remove(self):
+        pass
+    
+    
+    def test_addition_with_branch(self):
+        pass
+    
+    
+    def runTest(self):
+        self.test_actor_addition()
+        self.test_actor_removal()
+        self.test_branch_creation()
+        self.test_branch_removal()
+        self.test_stress_add()
+        self.test_stress_add_remove()
+        self.test_addition_with_branch()
+    
+    
+class RoundRobinRouterTest(unittest.TestCase):
+    
+    
+    def test_creation(self):
+        pass
+    
+    
+    def test_addition(self):
+        pass
+    
+    
+    def test_removal(self):
+        pass
+    
+    
+    def test_multi_addition(self):
+        pass
 
 
-class RoundRobinRouterTest(unittest.TestCase): pass
+    def test_at_load(self):
+        pass
+    
+    
+    def runTest(self):
+        self.test_creation()
+        self.test_addition()
+        self.test_removal()
+        self.test_multi_addition()
+        self.test_at_load()
 
 
-class RandomRouterTest(unittest.TestCase): pass
+class RandomRouterTest(unittest.TestCase): 
 
 
-class OnReadyRouterTest(unittest.TestCase): pass
+    def test_creation(self):
+        pass
+    
+    
+    def test_addition(self):
+        pass
+    
+    
+    def test_removal(self):
+        pass
+    
+    
+    def test_multi_addition(self):
+        pass
 
 
-class BalancingRouterTest(unittest.TestCase): pass
+    def test_at_load(self):
+        pass
+    
+    
+    def runTest(self):
+        self.test_creation()
+        self.test_addition()
+        self.test_removal()
+        self.test_multi_addition()
+        self.test_at_load()
+
+
+class BalancingRouterTest(unittest.TestCase):
+    
+    
+    def test_creation(self):
+        pass
+    
+    
+    def test_addition(self):
+        pass
+    
+    
+    def test_removal(self):
+        pass
+    
+    
+    def test_multi_addition(self):
+        pass
+
+
+    def test_at_load(self):
+        pass
+    
+    
+    def runTest(self):
+        self.test_creation()
+        self.test_addition()
+        self.test_removal()
+        self.test_multi_addition()
+        self.test_at_load()
 
 
 class HealthCheckTest(unittest.TestCase): pass
 
 
+def suite():
+    suite = TestSuite()
+    suite.addTest(ActorSystemTest())
+    return suite
+
+
 if __name__ == "__main__":
-    unittest.main()
+    runner = unittest.TextTestRunner()
+    test_suite = suite()
+    runner.run (test_suite)
