@@ -64,14 +64,14 @@ class AddTestActor(BaseActor):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.register_handler(IntMessage, self.add_test)
+        self.register_handler(AddIntMessage, self.add_test)
         
     
-    def add_test(self,message):
-        return int.from_bytes(message.payload, byteorder='big', signed=False) + 1
+    async def add_test(self,message):
+        return message.payload + 1
         
 
-class TestActor(unittest.TestCase):    
+class ActorTest(unittest.TestCase):    
     
     
     '''
@@ -125,7 +125,6 @@ class TestActor(unittest.TestCase):
             await stop_actor(b)
     
         asyncio.get_event_loop().run_until_complete(say_hello())
-    '''
     
     
     def test_add(self):
@@ -135,30 +134,58 @@ class TestActor(unittest.TestCase):
         async def test():
             a = BaseActor()
             b = AddTestActor()
+            a.start()
+            b.start()
             message = AddIntMessage(1)
-            print("adding")
             res = await a.ask(b, message)
-            print("Complete")
-            print(res)
-            #self.assertEqual(res, 2, "Response not Equals 2 ({})".format(res))
+            self.assertEqual(res, 2, "Response not Equals 2 ({})".format(res))
         asyncio.get_event_loop().run_until_complete(test())
-        
+    '''
     
-    def load_test(self):
+    def load_tell_test(self):
+        """
+        Create many tell tests.  At least a dozen actors for my laptop.  Our
+        actors in this test mimic a real world scenario.  Actors are paired and
+        then calls are made between them asynchronously.
+        """
+        
+        string_actors = []
+        calling_actors = []
+        for i in range(0,12):
+            string_actors.append(StringTestActor())
+            calling_actors.append(BaseActor())
+        
+        #create our tests
+        for i in range(0,len(calling_actors)):
+            pass
+    
+    def load_ask_test(self):
+        """
+        Create many ask tests.  At least a dozen actors for my laptop.  Our
+        actors in this test mimic a real world scenario.  Actors are paired and
+        then calls are made between them asynchronously.
+        """
         pass
 
-class TestActorSystem(unittest.TestCase): pass
+class ActorSystemTest(unittest.TestCase): pass
 
 
-class TestRoundRobinRouter(unittest.TestCase): pass
+class RoundRobinRouterTest(unittest.TestCase): pass
 
 
-class TestBalancingRouter(unittest.TestCase): pass
+class RandomRouterTest(unittest.TestCase): pass
 
 
-class HealthCheckTester(unittest.TestCase): pass
+class OnReadyRouterTest(unittest.TestCase): pass
+
+
+class BalancingRouterTest(unittest.TestCase): pass
+
+
+class HealthCheckTest(unittest.TestCase): pass
 
 
 if __name__ == "__main__":
     unittest.main()
     asyncio.get_event_loop().close()
+    
