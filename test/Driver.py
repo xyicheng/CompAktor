@@ -140,30 +140,57 @@ class ActorTest(unittest.TestCase):
             res = await a.ask(b, message)
             self.assertEqual(res, 2, "Response not Equals 2 ({})".format(res))
         asyncio.get_event_loop().run_until_complete(test())
+    
+    
+    def test_load_tell(self):
+        """
+        Create many tell tests.  At least a 100000 actors for my laptop.  Our
+        actors in this test mimic a real world scenario.  Actors are paired and
+        then calls are made between them asynchronously.  Multiprocessing is
+        avoided.
+        """
+        async def message(a,b,i):
+            await a.tell(b, StringMessage("Hello World {}".format(i)))
+        
+        
+        async def test_helper():  
+            string_actors = []
+            calling_actors = []
+            for i in range(0,100000):
+                a = StringTestActor()
+                a.start()
+                b = BaseActor()
+                b.start()
+                string_actors.append(a)
+                calling_actors.append(b)
+            
+            #create our tests
+            connections = []
+            for i in range(0,len(calling_actors)):
+                connections.append((calling_actors[i], string_actors[i], i))
+            
+            print("Executing Tell Load Test")
+            await asyncio.gather(*[message(connection[0], connection[1], connection[2]) for connection in connections])
+            print("Done Executing Tell Load Test")
+            
+            for i in range(0, len(calling_actors)):
+                await calling_actors[i].stop()
+                await string_actors[i].stop()
+        
+        async def test():
+            await test_helper()
+        
+        asyncio.get_event_loop().run_until_complete(test())
+        
+        print("Load test Complete")
     '''
     
-    def load_tell_test(self):
+    def test_load_ask(self):
         """
-        Create many tell tests.  At least a dozen actors for my laptop.  Our
+        Create many ask tests.  At least 10000 actors for my laptop.  Our
         actors in this test mimic a real world scenario.  Actors are paired and
-        then calls are made between them asynchronously.
-        """
-        
-        string_actors = []
-        calling_actors = []
-        for i in range(0,12):
-            string_actors.append(StringTestActor())
-            calling_actors.append(BaseActor())
-        
-        #create our tests
-        for i in range(0,len(calling_actors)):
-            pass
-    
-    def load_ask_test(self):
-        """
-        Create many ask tests.  At least a dozen actors for my laptop.  Our
-        actors in this test mimic a real world scenario.  Actors are paired and
-        then calls are made between them asynchronously.
+        then calls are made between them asynchronously.  Multiprocessing is
+        avoided 
         """
         pass
 
@@ -187,5 +214,3 @@ class HealthCheckTest(unittest.TestCase): pass
 
 if __name__ == "__main__":
     unittest.main()
-    asyncio.get_event_loop().close()
-    
