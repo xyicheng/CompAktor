@@ -15,8 +15,9 @@ import socket
 import unittest
 from unittest import TestSuite
 import aiounittest
-from compaktor.actor.actor import BaseActor
+from compaktor.actor.actor import BaseActor, ActorState
 from compaktor.actor.message import Message, QueryMessage
+from compaktor.system.actor_system import ActorSystem
 
 
 async def stop_actor(a):
@@ -242,8 +243,27 @@ class ActorTest(unittest.TestCase):
 class ActorSystemTest(unittest.TestCase): 
     
     
+    def test_empty_setup(self):
+        """
+        Instantiate and call close to ensure the system shuts down
+        """
+        sys = ActorSystem()
+        sys.close()
+    
+    
     def test_actor_addition(self):
-        pass
+        """
+        Instantiate add a single actor and call close.  The final actors state
+        should be TERMINATED.  The number of remaining children should be 0.
+        """
+        sys = ActorSystem("test")
+        a = StringTestActor()
+        sys.add_actor(a,  None)
+        sys.close()
+        print("closed")
+        print(a.get_state())
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        self.assertEqual(sys.is_empty(), True, "Actor System contains Actors")
     
     
     def test_actor_removal(self):
@@ -303,6 +323,10 @@ class RoundRobinRouterTest(unittest.TestCase):
         pass
     
     
+    def test_failure(self):
+        pass
+    
+    
     def runTest(self):
         self.test_creation()
         self.test_addition()
@@ -331,6 +355,10 @@ class RandomRouterTest(unittest.TestCase):
 
 
     def test_at_load(self):
+        pass
+    
+    
+    def test_failure(self):
         pass
     
     
@@ -365,6 +393,10 @@ class BalancingRouterTest(unittest.TestCase):
         pass
     
     
+    def test_failure(self):
+        pass
+    
+    
     def runTest(self):
         self.test_creation()
         self.test_addition()
@@ -373,7 +405,15 @@ class BalancingRouterTest(unittest.TestCase):
         self.test_at_load()
 
 
-class HealthCheckTest(unittest.TestCase): pass
+class HealthCheckTest(unittest.TestCase): 
+
+
+    def test_heartbeat(self):
+        pass
+    
+    
+    def test_failure(self):
+        pass
 
 
 def suite():

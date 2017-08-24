@@ -13,7 +13,16 @@ from enum import Enum
 import logging
 import socket
 import time
+
+
+from atomos.atomic import AtomicLong
+
+
 from compaktor.actor.message import QueryMessage, PoisonPill
+
+
+#long will be fine for now
+NAME_BASE = AtomicLong()
 
 
 class HandlerNotFoundError(Exception): pass
@@ -47,7 +56,9 @@ class AbstractActor(object):
     
     def __init__(self,name = None, loop = None, address = None):
         self.loop = asyncio.get_event_loop() if loop is None else loop
-        self.__name = name
+        self.__name = str(NAME_BASE.get_and_add(1))
+        if NAME_BASE.get() is float('inf'):
+            NAME_BASE = NAME_BASE.set(0)
         self.__STATE = ActorState.LIMBO
         self.__complete = asyncio.Future(loop = self.loop)
         self.__address = address
@@ -130,6 +141,7 @@ class BaseActor(AbstractActor):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.__name = kwargs.get('name',self.get_name())
         self.loop = kwargs.get('loop', self.loop)
         self._max_inbox_size = kwargs.get('max_inbox_size', 0)
         self._inbox = kwargs.get('queue', asyncio.Queue(maxsize=

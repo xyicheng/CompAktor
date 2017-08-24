@@ -7,6 +7,7 @@ Created on Aug 20, 2017
 '''
 
 
+import gc
 from threading import Lock
 
 
@@ -16,7 +17,7 @@ class ChildNotFoundException(Exception): pass
 class ChildNodeExistsException(Exception): pass
 
 
-class ActorTreeNode():
+class ActorTreeNode:
     """
     A B+ tree storing actor nodes.
     """
@@ -26,134 +27,118 @@ class ActorTreeNode():
     
     def __init__(self, name, actor):
         self.children = {}
-        self.actor = None
-        self.name = None
+        self.actor = actor
+        self.name = name
 
 
-class ActorSystems():
+class ActorSystem:
     """
-    The total systems storing the actor nodes.  Addresses correlate to tree 
-    structures starting at the root of the hierarchy.
+    A basic actor system tree.  Actors are referenced as if they belong to a file system.
     """
     
+    __root = None
+    __system_name = None
+        
+        
+    def __init__(self, system_name):
+        """
+        Constructor.
+        
+        :param system_name:  The system name
+        """
+        self.__root = ActorTreeNode(system_name,None)
+        self.__system_name = system_name
     
-    __NAME = None
-    __root = ActorTreeNode("root", None)
     
-    
-    def __init__(self, name):
-        self.__tree_lock = Lock()
-        self.__NAME = name
+    def create_branch(self, root_node):
+        """
+        Create a branch in the actor system.  This is basically an additional 
+        system.  The name of this system is take from the tree node provided.
+        
+        :param root_node:  The root node for the new branch.
+        :type root_node:  ActorTreeNode
+        """
+        if root_node.name in self.__root.children:
+            raise ChildNodeExistsException("Branch Exists for Actor {}.".format(root_node.name))
+        
+        
+        self.__root.children[root_node.name.trim()] = root_node
         
     
-    def add_actor(self, actor, name, path = None):
+    def add_actor(self, actor, path, node_name = None):
         """
-        Add an actor to the tree at the given path (address).
+        Add an actor at the path in the system.  A node name may be optionally
+        provided.
         
-        :param actor:  The actor to add to the tree
-        :param name:  The name of the actor which becomes the final path part
-        :param path:  The path to search for defaulting to root only
+        :param actor:  The actor 
+        :type actor:  Actor
+        :param path:  Path separated by /
+        :type path:  str
+        :param node_name:  The name of the node to add
+        :type node_name:  str
         """
-        self.__tree_lock.acquire()
-        try:
-            current_node = self.__root
-            if path is not None:
-                #add to a specific path if it exists
-                path_parts = path.split('/')
-                current_node = self.__root
-                for part in path_parts:
-                    if part in current_node.children:
-                        current_node = current_node.children[part]
-                    else:
-                        raise ChildNotFoundException("Child not found for path {} in\
-                                                      {}!".format(part,path))    
-            
-            if name in current_node.children:
-                raise ChildNodeExistsException("Child node already exists.  Cannot\
-                                                 add to path!")
-            else:
-                #add actor to path
-                current_node.children[name] = actor
-        finally:
-            self.__tree_lock.release()    
-    
-    
-    def stop_all_actors(self, actor):
-        """
-        Stop all actors in a given subtree starting with the root actor.
-        
-        :param actor:  The actor subtree root
-        :type actor:  ActorTreeNode
-        """
-        self.__tree_lock.acquire
-        try:
-            actor.actor.stop()
-            if actor.children is not None:
-                for actor in actor.children:
-                    self.stop_all_actors(actor)
-        finally:
-            self.__tree_lock.release()
-    
-    
-    def remove_actors(self, path):
-        """
-        Remove actors at a path.
-        
-        :param path:  The path to the subtree to remove
-        :type path: str
-        """
-        self.__tree_lock.acquire()
-        try:
-            if path is None:
-                raise Exception("Path to remove is None but the actor is required.")
-            
-            path_parts = path.split('/')
-            current_node = self.__root
-            parent = current_node
-            for i in range(0, len(path_parts) - 1):
-                part = path_parts[i]
-                if part not in current_node.children:
-                    raise ChildNotFoundException("Child node not in {}!".format(path))
-                parent = current_node
-                current_node = current_node.children[part]
-            
-            actor_name = path_parts[len(path_parts) - 1]
-            self.stop_all_actors(current_node)
-            del parent[actor_name]
-        finally:
-            self.__tree_lock.release()
-
-
-    def get_actors_tree(self, path):
-        """
-        Return the subtree at the actor path.
-        
-        :param path:  Path to the root of the actors to return
-        :return:  The node subtree at the path
-        """
-        self.__tree_lock.acquire()
         if path is None:
-            raise Exception("Path cannot be null in getting actor subtree.")
+            raise TypeError("Path was None but must be a string providing a path in the tree")
         
-        path_parts = path.split('/')
+        path_list = path.split('/')
         current_node = self.__root
-        for path in path_parts:
-            if path not in current_node.children:
-                raise ChildNotFoundException("Child not in path {}!".format(path))
-            current_node = current_node.children[path]
-        return current_node
+        for path_part in path_list:
+            node_name = path_part.trim()
+            if node_name not in current_node.children:
+                raise ChildNotFoundException("Child Node not found for {}".format(node_name))
+            current_node = current_node.children[node_name]
     
     
-    def get_actors(self,path):
+    def get_actor(self, path):
         """
-        Get only the child actors at a level.
+        Get an actor at the specified path.
         
-        :param path:  The path to the current actor
-        :return:  The actors 
+        :param path:  The path to the actor
+        :type path:  str
         """
-        current_node = self.get_actors_tree(path)
-        if len(current_node.children) > 0:
-            for node in current_node.children:
-                yield node.actor
-        else:
-            yield None
+        if path is None:
+            raise TypeError("Path is None but must be a path to the actor.")
+        
+        path_list = path.split('/')
+        for path in path_list:
+            node_name = path.strip() 
+        
+    
+    def stop_actor(self, path):
+        """
+        Stop an actor at a specified path.  Verifies the path to the actor
+        
+        :param path:  Path to the actor
+        :type path:  str  
+        """
+        if path is None:
+            raise TypeError("""Path to Actor cannot be None.  It must be a 
+            string path separated by /.""")
+        
+        actor = self.get_actor(path)
+    
+    
+    def stop_actors_on_branch(self, branch_name):
+        """
+        Stop all actors on a specific branch.
+        
+        :param branch_name:  The name of the branch / system
+        :type branch_name:  str
+        """
+        pass
+
+    
+    def stop_all_actors(self):
+        pass
+    
+    
+    def remove_all_actors(self):
+        pass
+    
+    
+    def delete_branch(self):
+        pass
+    
+    
+    def add_branch(self):
+        pass
