@@ -8,10 +8,8 @@ Created on Aug 18, 2017
 
 
 import asyncio
-import asyncore
 from enum import Enum
 import logging
-import socket
 import time
 
 
@@ -22,7 +20,18 @@ from compaktor.actor.message import QueryMessage, PoisonPill
 
 
 #long will be fine for now
-NAME_BASE = AtomicLong()
+class NameCreationUtils():
+    
+    
+    NAME_BASE = AtomicLong()
+    
+    
+    @staticmethod
+    def get_name_base():
+        base = NameCreationUtils.NAME_BASE.get_and_add(1)
+        if NameCreationUtils.NAME_BASE.get() is float('inf'):
+            NameCreationUtils.NAME_BASE.set(0)
+        return base
 
 
 class HandlerNotFoundError(Exception): pass
@@ -52,20 +61,19 @@ class AbstractActor(object):
     
     
     __STATE = ActorState.CREATED
+    __NAME = None  
     
     
-    def __init__(self,name = None, loop = None, address = None):
+    def __init__(self, name = None, loop = None, address = None):
         self.loop = asyncio.get_event_loop() if loop is None else loop
-        self.__name = str(NAME_BASE.get_and_add(1))
-        if NAME_BASE.get() is float('inf'):
-            NAME_BASE = NAME_BASE.set(0)
+        self.__NAME = str(NameCreationUtils.get_name_base()) if name is None else name
         self.__STATE = ActorState.LIMBO
         self.__complete = asyncio.Future(loop = self.loop)
         self.__address = address
     
     
     def get_name(self):
-        return self.__name
+        return self.__NAME
         
     
     def get_state(self):
@@ -137,11 +145,14 @@ class BaseActor(AbstractActor):
     """
     The base actor implementing the AbstractActor class.
     """
-
-
+    
+    
+    __NAME = None
+    
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__name = kwargs.get('name',self.get_name())
+        self.__NAME = kwargs.get('name',str(NameCreationUtils.get_name_base()))
         self.loop = kwargs.get('loop', self.loop)
         self._max_inbox_size = kwargs.get('max_inbox_size', 0)
         self._inbox = kwargs.get('queue', asyncio.Queue(maxsize=
@@ -150,8 +161,12 @@ class BaseActor(AbstractActor):
 
         # Create handler for the 'poison pill' message
         self.register_handler(PoisonPill, self._stop_message_handler)
-
-
+    
+    
+    def get_name(self):
+        return self.__NAME
+    
+    
     def register_handler(self, message_cls, func):
         self._handlers[message_cls] = func
 
@@ -189,3 +204,11 @@ class BaseActor(AbstractActor):
         item in it so the call to _inbox.get() doesn't block. We don't actually
         have to do anything with it.
         '''
+        
+        
+    def __str__(self, *args, **kwargs):
+        return "Actor(name = {}, handlers = {}, status = {})".format(self.__NAME, str(self._handlers), self.get_state())
+    
+        
+    def __repr__(self, *args, **kwargs):
+        return AbstractActor.__repr__(self, *args, **kwargs) 

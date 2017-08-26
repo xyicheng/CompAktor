@@ -8,10 +8,7 @@ Created on Aug 19, 2017
 
 
 import asyncio
-import itertools
-import logging
 import random
-import sys
 from atomos import atomic
 import janus
 from compaktor.actor.actor import BaseActor, ActorState, QueryMessage

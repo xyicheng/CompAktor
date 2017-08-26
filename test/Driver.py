@@ -10,8 +10,11 @@ Created on Aug 19, 2017
 
 
 import asyncio
+import gc
 from multiprocessing import Process
+import random
 import socket
+import sys
 import unittest
 from unittest import TestSuite
 import aiounittest
@@ -256,48 +259,157 @@ class ActorSystemTest(unittest.TestCase):
         Instantiate add a single actor and call close.  The final actors state
         should be TERMINATED.  The number of remaining children should be 0.
         """
+        print("Testing Actor Addition")
         sys = ActorSystem("test")
-        a = StringTestActor()
-        sys.add_actor(a,  None)
+        a = BaseActor()
+        a.start()
+        sys.add_actor(a, "test")
+        n = sys.get_actor_node("test/1")
+        sys.print_tree()
+        a = n.actor
+        asyncio.get_event_loop().run_until_complete(a.stop())
         sys.close()
-        print("closed")
-        print(a.get_state())
-        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
-        self.assertEqual(sys.is_empty(), True, "Actor System contains Actors")
+        del sys
+        gc.collect()
+        del gc.garbage[:]
+        print("Finished Testing Actor Addition")
     
     
     def test_actor_removal(self):
-        pass
+        """
+        Test actor addition and then removal
+        """
+        print("Testing Actor Removal")
+        sys = ActorSystem("test")
+        a = BaseActor()
+        a.start()
+        sys.add_actor(a, "test")
+        sys.delete_branch("1")
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        print("Printing Tree")
+        sys.print_tree()
+        asyncio.get_event_loop().run_until_complete(a.stop())
+        sys.close()
+        del sys
+        gc.collect()
+        del gc.garbage[:]
+        print("Finished Testing Actor Removal")
     
     
     def test_branch_creation(self):
-        pass
+        """
+        Test branch creation
+        """
+        print("Testing Branch Creation")
+        a = BaseActor()
+        a.start()
+        b = BaseActor()
+        b.start()
+        c = BaseActor()
+        c.start()
+        d = BaseActor()
+        d.start()
+        
+        sys = ActorSystem("test")
+        sys.add_actor(a,"test")
+        sys.add_actor(b, "test/{}".format(a.get_name()))
+        sys.add_actor(d, "test/{}/{}".format(a.get_name(),b.get_name()))
+        sys.add_actor(c,"test")
+        sys.print_tree()
+        
+        sys.close(do_print = False)
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        self.assertEqual(c.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        self.assertEqual(d.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        print("Finished Testing Branch Creation")
     
     
     def test_branch_removal(self):
-        pass
+        """
+        Add a basic branch and remove it.
+        """
+        print("Testing Branch Creation")
+        a = BaseActor()
+        a.start()
+        b = BaseActor()
+        b.start()
+        c = BaseActor()
+        c.start()
+        d = BaseActor()
+        d.start()
+        
+        sys = ActorSystem("test")
+        sys.add_actor(a,"test")
+        sys.add_actor(b, "test/{}".format(a.get_name()))
+        sys.add_actor(d, "test/{}/{}".format(a.get_name(),b.get_name()))
+        sys.add_actor(c,"test")
+        sys.print_tree()
+        
+        sys.close(do_print = False)
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        self.assertEqual(c.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        self.assertEqual(d.get_state(), ActorState.TERMINATED, "Actor was not Terminated")
+        print("Finished Testing Branch Creation")
 
     
-    def test_stress_add(self):
-        pass
+    def test_stress_add_two_levels(self):
+        """
+        Test actors added to two levels of the tree.  150000 actors added.
+        """
+        level_one = []
+        level_two = []
+        sys = ActorSystem("test")
+        async def test():
+            print("Creating Actors")
+            for i in range(1, 50000):
+                a = BaseActor()
+                a.start()
+                sys.add_actor(a, "test")
+                level_one.append(a)
     
-    
-    def test_stress_add_remove(self):
-        pass
-    
-    
-    def test_addition_with_branch(self):
-        pass
-    
+            for i in range(1, 100000):
+                #choose random
+                a = BaseActor()
+                a.start()
+                parent = random.choice(level_one)
+                path = "test/{}".format(parent.get_name().strip())
+                sys.add_actor(a, path)
+                level_two.append(parent)
+            
+        asyncio.get_event_loop().run_until_complete(test())
+        print("Closing Actors")
+        sys.close()
+        print("Finished Closing System")
+        self.assertEqual(len([x for x in level_one if x.get_state() is ActorState.RUNNING ]), 0 )
+        self.assertEqual(len([x for x in level_one if x.get_state() is ActorState.TERMINATED]), len(level_one))
+        self.assertEqual(len([x for x in level_two if x.get_state() is ActorState.RUNNING ]), 0 )
+        self.assertEqual(len([x for x in level_two if x.get_state() is ActorState.TERMINATED]), len(level_two))
+
+        
+    def test_stress_line_of_levels(self):
+        print("Testing Long Line of Actors")
+        sys = ActorSystem("test")
+        path = "test"
+        actors = []
+        for i in range(1,10000):
+            actor = BaseActor()
+            actor.start()
+            sys.add_actor(actor, path)
+            actors.append(actor)
+            path += "/{}".format(actor.get_name())
+        print("Closing Actors")
+        sys.close()
+        self.assertEqual(len([x for x in actors if x.get_state() is ActorState.TERMINATED]), len(actors))
     
     def runTest(self):
         self.test_actor_addition()
         self.test_actor_removal()
         self.test_branch_creation()
         self.test_branch_removal()
-        self.test_stress_add()
-        self.test_stress_add_remove()
-        self.test_addition_with_branch()
+        self.test_stress_add_two_levels()
+        self.test_stress_line_of_levels()
     
     
 class RoundRobinRouterTest(unittest.TestCase):
@@ -423,6 +535,7 @@ def suite():
 
 
 if __name__ == "__main__":
+    sys.setrecursionlimit(0x5000000)
     runner = unittest.TextTestRunner()
     test_suite = suite()
     runner.run (test_suite)
