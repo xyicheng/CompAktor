@@ -7,14 +7,33 @@ As I am just starting my Python 3.x and asyncio journey, the base actors are fro
 Initial features will include:
 
 - Single Node Actors
-- Remote Actors
 - An actor manager
 - Actor States
 - Round Robin Router
+- Random Router
+- Balancing Router
 - many of the features available in the original actor components in Akka
 
-Feature Wish List (next round of stuff for the backlog):
+Our goal at the moment is to surpass Akka 1.1-1.3 with modern features such as a set of router types. 
+At the moment this will occur when failure handling, health checking, and dead letter handling are in
+place. The goal after this is to create streams and then move to remoting and clustering. In the 
+meantime, maybe we could pressure Lightbend to create a Python system. 
 
+We are currently implementing:
+
+- Health Checking (in test)
+- Dead Letter Handling (starting dev)
+- Streams (implementing in the use cases section)
+- Failure Handler Strategies (one for one replacement and removal with the latter already happening) 
+
+I would say the biggest to dos at the moment are replacing the janus queue in the balancing routher,failure handling, health checking, and dead letter handling in that order.
+Streams will develop through the use cases. 
+
+Our test cases and use cases are available to help deepen an und
+
+Feature Wish List (next round of stuff from the backlog):
+
+- Remote Actors
 - Stream Sources and Sinks
 - Graph Stages
 - Clustered Actors
