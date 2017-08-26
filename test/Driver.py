@@ -21,6 +21,7 @@ import aiounittest
 from compaktor.actor.actor import BaseActor, ActorState
 from compaktor.actor.message import Message, QueryMessage
 from compaktor.system.actor_system import ActorSystem
+from compaktor.router.routers import RoundRobinRouter
 
 
 async def stop_actor(a):
@@ -416,32 +417,51 @@ class RoundRobinRouterTest(unittest.TestCase):
     
     
     def test_creation(self):
-        pass
+        print("Create Router Test")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        self.assertEqual(rr.get_name(), 'test_router')
+        rr.set_actor_system(sys, "tests")
+        sys.close()
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
+        print("Completed Router Creation Test")
+    
+    def test_actor_addition(self):
+        print("Starting Actor Addition Test")
+        
+        print("Actor Addition Test Complete")
     
     
-    def test_addition(self):
-        pass
+    def test_multiple_actor_addition(self):
+        print("Starting Multiple Actor Addition Test")
+        
+        print("Finished Multiple Actor Addition Test")
     
     
     def test_removal(self):
-        pass
+        print("Testing Actor Removal")
+        
+        print("Done Testing Actor Removal")
     
     
-    def test_multi_addition(self):
-        pass
-
+    def test_multiplication(self):
+        print("Testing multiplication")
+        
+        print("Done Testing Multiplication")    
+    
 
     def test_at_load(self):
-        pass
-    
-    
-    def test_failure(self):
-        pass
+        print("Load Testing")
+        
+        print("Done Load Testing")
     
     
     def runTest(self):
-        self.test_creation()
-        self.test_addition()
+        #self.test_creation()
+        self.test_actor_addition()
         self.test_removal()
         self.test_multi_addition()
         self.test_at_load()
@@ -451,27 +471,39 @@ class RandomRouterTest(unittest.TestCase):
 
 
     def test_creation(self):
-        pass
+        print("Started Creation Test")
+        
+        print("Completed Creation Test")
     
     
-    def test_addition(self):
-        pass
+    def test_actor_addition(self):
+        print("Starting Actor Addition Test")
+        
+        print("Actor Addition Test Complete")
+    
+    
+    def test_multiple_actor_addition(self):
+        print("Starting Multiple Actor Addition Test")
+        
+        print("Finished Multiple Actor Addition Test")
     
     
     def test_removal(self):
-        pass
+        print("Testing Actor Removal")
+        
+        print("Done Testing Actor Removal")
     
     
-    def test_multi_addition(self):
-        pass
-
+    def test_multiplication(self):
+        print("Testing multiplication")
+        
+        print("Done Testing Multiplication")    
+    
 
     def test_at_load(self):
-        pass
-    
-    
-    def test_failure(self):
-        pass
+        print("Load Testing")
+        
+        print("Done Load Testing")
     
     
     def runTest(self):
@@ -486,28 +518,38 @@ class BalancingRouterTest(unittest.TestCase):
     
     
     def test_creation(self):
-        pass
+        print("Starting Creation Test")
+        
+        print("Completed Creation Test")
+    
+    def test_actor_addition(self):
+        print("Starting Actor Addition Test")
+        
+        print("Actor Addition Test Complete")
     
     
-    def test_addition(self):
-        pass
+    def test_multiple_actor_addition(self):
+        print("Starting Multiple Actor Addition Test")
+        
+        print("Finished Multiple Actor Addition Test")
     
     
     def test_removal(self):
-        pass
+        print("Testing Actor Removal")
+        
+        print("Done Testing Actor Removal")
     
     
-    def test_multi_addition(self):
-        pass
-
+    def test_multiplication(self):
+        print("Testing multiplication")
+        
+        print("Done Testing Multiplication")    
+    
 
     def test_at_load(self):
-        pass
-    
-    
-    def test_failure(self):
-        pass
-    
+        print("Load Testing")
+        
+        print("Done Load Testing")
     
     def runTest(self):
         self.test_creation()
@@ -521,16 +563,22 @@ class HealthCheckTest(unittest.TestCase):
 
 
     def test_heartbeat(self):
-        pass
+        print("Started Heartbeat Test")
+        
+        print("Completed Heartbeat Test")
     
     
     def test_failure(self):
-        pass
+        print("Started Failure Test")
+        
+        print("Completed Failure Test")
 
 
 def suite():
     suite = TestSuite()
-    suite.addTest(ActorSystemTest())
+    #suite.addTest(ActorTest())
+    #suite.addTest(ActorSystemTest())
+    suite.addTest(RoundRobinRouterTest())
     return suite
 
 

@@ -188,13 +188,33 @@ class RoundRobinRouter(BaseActor):
     A round robin router actor that facilitates messaging serially between
     a set of actors.  Routers do not use handlers.
     """
-    actor_set = []
-    current_index = atomic.AtomicInteger()
     
     
     def __init__(self, actors = [], *args, **kwargs):
-        super.__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+        self.name = kwargs.get('name',super().get_name())
         self.actor_set = list(set(actors))
+        self.actor_set = []
+        self.current_index = atomic.AtomicInteger()
+        self.actor_system = None
+        self.sys_path = None
+    
+    
+    def set_actor_system(self, actor_system, path):
+        """
+        Set the actor system for the router
+        
+        :param actor_system:  The actor system
+        :type actor_system:  ActorSystem
+        :param path:  The path to add the router to
+        :type path:  str
+        """
+        self.actor_system = actor_system
+        self.actor_system.add_actor(self, path)
+        self.sys_path = "{}/{}".format(path,self.name)
+        
+        for actor in self.actor_set:
+            self.actor_system.add_actor(actor, self.sys_path)
     
     
     def add_actor(self, actor):
@@ -205,6 +225,10 @@ class RoundRobinRouter(BaseActor):
         """
         if actor not in self.actors:
             self.actor_set.append(actor)
+        
+        if self.sys_path is not None and self.actor_system is not None:
+            self.actor_system.add_actor(actor, self.sys_path)
+            
     
     
     def remove_actor(self,actor):
@@ -215,6 +239,11 @@ class RoundRobinRouter(BaseActor):
         """
         if actor in self.actor_set:
             self.actor_set.remove(actor)
+            
+        #remove actor from system if set
+        if self.sys_path is not None:
+            path = "{}/{}".format(self.sys_path,actor.get_name())
+            self.actor_system.delete_branch(path)
     
 
     async def route_tell(self, message):
