@@ -22,6 +22,7 @@ from compaktor.actor.actor import BaseActor, ActorState
 from compaktor.actor.message import Message, QueryMessage
 from compaktor.system.actor_system import ActorSystem
 from compaktor.router.routers import RoundRobinRouter
+from setuptools.command.easy_install import sys_executable
 
 
 async def stop_actor(a):
@@ -431,87 +432,429 @@ class RoundRobinRouterTest(unittest.TestCase):
     
     def test_actor_addition(self):
         print("Starting Actor Addition Test")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
         
+        a = BaseActor()
+        a.start()
+        rr.add_actor(a)
+        
+        b = BaseActor()
+        b.start()
+        rr.add_actor(b)
+        
+        self.assertEqual(rr.get_num_actors(), 2, "Actors Missing. Length {}".format(rr.get_num_actors()))
+        
+        rr.remove_actor(a)
+        self.assertEqual(rr.get_num_actors(), 1, "Number of Actors Should be 1")
+        asyncio.get_event_loop().run_until_complete(a.stop())
+        sys.close()
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor a Not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, " Actor b Not Terminated")
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
         print("Actor Addition Test Complete")
-    
-    
-    def test_multiple_actor_addition(self):
-        print("Starting Multiple Actor Addition Test")
-        
-        print("Finished Multiple Actor Addition Test")
-    
-    
-    def test_removal(self):
-        print("Testing Actor Removal")
-        
-        print("Done Testing Actor Removal")
     
     
     def test_multiplication(self):
         print("Testing multiplication")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
         
+        a = AddTestActor()
+        a.start()
+        rr.add_actor(a)
+        
+        b = AddTestActor()
+        b.start()
+        rr.add_actor(b)
+        
+        async def get_addition():
+            res = await rr.route_ask(AddIntMessage(1))
+            return res
+        
+        res = asyncio.get_event_loop().run_until_complete(get_addition())
+        print(rr.get_current_index())
+        self.assertEqual(res, 2, "Addition Not Completed")
+        
+        self.assertEqual(rr.get_num_actors(), 2, "Actors Missing. Length {}".format(rr.get_num_actors()))
+        sys.close()
+        
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor a Not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, " Actor b Not Terminated")
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
         print("Done Testing Multiplication")    
     
-
+    
+    def test_tell(self):
+        print("Starting Tell Test")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
+        
+        a = StringTestActor()
+        a.start()
+        rr.add_actor(a)
+        
+        b = StringTestActor()
+        b.start()
+        rr.add_actor(b)
+        
+        self.assertEqual(rr.get_num_actors(), 2, "Actors Missing. Length {}".format(rr.get_num_actors()))
+        
+        asyncio.get_event_loop().run_until_complete(rr.route_tell(StringMessage("Hello World")))
+        
+        sys.close()
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor a Not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, " Actor b Not Terminated")
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
+        print("Tell Test Complete")
+    
+    
+    def test_broadcast(self):
+        print("Testing Broadcast")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
+        
+        a = StringTestActor()
+        a.start()
+        rr.add_actor(a)
+        
+        b = StringTestActor()
+        b.start()
+        rr.add_actor(b)
+        
+        asyncio.get_event_loop().run_until_complete(rr.broadcast(StringMessage("Hello World!")))
+        self.assertEqual(rr.get_num_actors(), 2, "Actors Missing. Length {}".format(rr.get_num_actors()))
+        
+        asyncio.get_event_loop().run_until_complete(rr.route_tell(StringMessage("Hello World")))
+        
+        sys.close()
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor a Not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, " Actor b Not Terminated")
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
+        print("Finished Testing Broadcast")
+    
+    
     def test_at_load(self):
         print("Load Testing")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
         
+        actors = []
+        
+        async def get_addition():
+            res = await rr.route_ask(AddIntMessage(1))
+            return res
+        
+        async def get_sum(funcs):
+            res = await asyncio.gather(*funcs)
+            return sum(res) / 2
+        
+        print("Starting Actor")
+        for i in range(0,50000):
+            a = AddTestActor()
+            a.start()
+            rr.add_actor(a)
+            actors.append(a)
+        
+        print("Start Adding")
+        funcs = [get_addition() for x in actors]
+        print("Waiting")
+        res = asyncio.get_event_loop().run_until_complete(get_sum(funcs))
+        print(res)
+        self.assertEqual(res, len(funcs), "Result {} is not {}".format(res, len(funcs)))
+        sys.close()
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
         print("Done Load Testing")
     
     
-    def runTest(self):
-        #self.test_creation()
-        self.test_actor_addition()
-        self.test_removal()
-        self.test_multi_addition()
-        self.test_at_load()
+    def test_tell_at_load(self):
+        print("Load Testing With Tell")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
+        
+        actors = []
+        
+        async def say_hello(i):
+            await rr.route_tell(StringMessage("Hello {}".format(i)))
+        
+        async def comp(funcs):
+            await asyncio.gather(*funcs)
+        
+        print("Starting Actor")
+        for i in range(0,20000):
+            a = StringTestActor()
+            a.start()
+            rr.add_actor(a)
+            actors.append(a)
+        
+        print("Start Adding")
+        funcs = [say_hello(i) for i in range(0,len(actors))]
+        print("Waiting")
+        asyncio.get_event_loop().run_until_complete(comp(funcs))
+        sys.close()
+        del sys
+        gc.collect()
+        del gc.garbage[:]
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
+        print("Load Testing With Tell Complete")
 
+    def runTest(self):
+        self.test_creation()
+        self.test_actor_addition()
+        self.test_tell()
+        
+        self.test_multiplication()
+        self.test_broadcast()
+        self.test_at_load()
+        
+        self.test_tell_at_load()
+        self.test_mixed_load()
+        
 
 class RandomRouterTest(unittest.TestCase): 
 
 
     def test_creation(self):
-        print("Started Creation Test")
-        
-        print("Completed Creation Test")
-    
+        print("Create Router Test")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        self.assertEqual(rr.get_name(), 'test_router')
+        rr.set_actor_system(sys, "tests")
+        sys.close()
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
+        print("Completed Router Creation Test")
     
     def test_actor_addition(self):
         print("Starting Actor Addition Test")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
         
+        a = BaseActor()
+        a.start()
+        rr.add_actor(a)
+        
+        b = BaseActor()
+        b.start()
+        rr.add_actor(b)
+        
+        self.assertEqual(rr.get_num_actors(), 2, "Actors Missing. Length {}".format(rr.get_num_actors()))
+        
+        rr.remove_actor(a)
+        self.assertEqual(rr.get_num_actors(), 1, "Number of Actors Should be 1")
+        asyncio.get_event_loop().run_until_complete(a.stop())
+        sys.close()
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor a Not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, " Actor b Not Terminated")
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
         print("Actor Addition Test Complete")
-    
-    
-    def test_multiple_actor_addition(self):
-        print("Starting Multiple Actor Addition Test")
-        
-        print("Finished Multiple Actor Addition Test")
-    
-    
-    def test_removal(self):
-        print("Testing Actor Removal")
-        
-        print("Done Testing Actor Removal")
     
     
     def test_multiplication(self):
         print("Testing multiplication")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
         
+        a = AddTestActor()
+        a.start()
+        rr.add_actor(a)
+        
+        b = AddTestActor()
+        b.start()
+        rr.add_actor(b)
+        
+        async def get_addition():
+            res = await rr.route_ask(AddIntMessage(1))
+            return res
+        
+        res = asyncio.get_event_loop().run_until_complete(get_addition())
+        print(rr.get_current_index())
+        self.assertEqual(res, 2, "Addition Not Completed")
+        
+        self.assertEqual(rr.get_num_actors(), 2, "Actors Missing. Length {}".format(rr.get_num_actors()))
+        sys.close()
+        
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor a Not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, " Actor b Not Terminated")
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
         print("Done Testing Multiplication")    
     
-
+    
+    def test_tell(self):
+        print("Starting Tell Test")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
+        
+        a = StringTestActor()
+        a.start()
+        rr.add_actor(a)
+        
+        b = StringTestActor()
+        b.start()
+        rr.add_actor(b)
+        
+        self.assertEqual(rr.get_num_actors(), 2, "Actors Missing. Length {}".format(rr.get_num_actors()))
+        
+        asyncio.get_event_loop().run_until_complete(rr.route_tell(StringMessage("Hello World")))
+        
+        sys.close()
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor a Not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, " Actor b Not Terminated")
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
+        print("Tell Test Complete")
+    
+    
+    def test_broadcast(self):
+        print("Testing Broadcast")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
+        
+        a = StringTestActor()
+        a.start()
+        rr.add_actor(a)
+        
+        b = StringTestActor()
+        b.start()
+        rr.add_actor(b)
+        
+        asyncio.get_event_loop().run_until_complete(rr.broadcast(StringMessage("Hello World!")))
+        self.assertEqual(rr.get_num_actors(), 2, "Actors Missing. Length {}".format(rr.get_num_actors()))
+        
+        asyncio.get_event_loop().run_until_complete(rr.route_tell(StringMessage("Hello World")))
+        
+        sys.close()
+        self.assertEqual(a.get_state(), ActorState.TERMINATED, "Actor a Not Terminated")
+        self.assertEqual(b.get_state(), ActorState.TERMINATED, " Actor b Not Terminated")
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
+        print("Finished Testing Broadcast")
+    
+    
     def test_at_load(self):
         print("Load Testing")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
         
+        actors = []
+        
+        async def get_addition():
+            res = await rr.route_ask(AddIntMessage(1))
+            return res
+        
+        async def get_sum(funcs):
+            res = await asyncio.gather(*funcs)
+            return sum(res) / 2
+        
+        print("Starting Actor")
+        for i in range(0,50000):
+            a = AddTestActor()
+            a.start()
+            rr.add_actor(a)
+            actors.append(a)
+        
+        print("Start Adding")
+        funcs = [get_addition() for x in actors]
+        print("Waiting")
+        res = asyncio.get_event_loop().run_until_complete(get_sum(funcs))
+        print(res)
+        self.assertEqual(res, len(funcs), "Result {} is not {}".format(res, len(funcs)))
+        sys.close()
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
         print("Done Load Testing")
     
     
+    def test_tell_at_load(self):
+        print("Load Testing With Tell")
+        sys = ActorSystem("tests")
+        kwargs = {'name' : 'test_router'}
+        args = []
+        rr = RoundRobinRouter(*args, **kwargs)
+        rr.start()
+        rr.set_actor_system(sys, "tests")
+        
+        actors = []
+        
+        async def say_hello(i):
+            await rr.route_tell(StringMessage("Hello {}".format(i)))
+        
+        async def comp(funcs):
+            await asyncio.gather(*funcs)
+        
+        print("Starting Actor")
+        for i in range(0,20000):
+            a = StringTestActor()
+            a.start()
+            rr.add_actor(a)
+            actors.append(a)
+        
+        print("Start Adding")
+        funcs = [say_hello(i) for i in range(0,len(actors))]
+        print("Waiting")
+        asyncio.get_event_loop().run_until_complete(comp(funcs))
+        sys.close()
+        del sys
+        gc.collect()
+        del gc.garbage[:]
+        self.assertEqual(rr.get_state(), ActorState.TERMINATED, "Router Not Terminated")
+        print("Load Testing With Tell Complete")
+
+
     def runTest(self):
         self.test_creation()
-        self.test_addition()
-        self.test_removal()
-        self.test_multi_addition()
-        self.test_at_load()
+        #self.test_actor_addition()
+        #self.test_tell()
+        
+        #self.test_multiplication()
+        #self.test_broadcast()
+        #self.test_at_load()
+        
+        #self.test_tell_at_load()
+        #self.test_mixed_load()
 
 
 class BalancingRouterTest(unittest.TestCase):
@@ -528,18 +871,6 @@ class BalancingRouterTest(unittest.TestCase):
         print("Actor Addition Test Complete")
     
     
-    def test_multiple_actor_addition(self):
-        print("Starting Multiple Actor Addition Test")
-        
-        print("Finished Multiple Actor Addition Test")
-    
-    
-    def test_removal(self):
-        print("Testing Actor Removal")
-        
-        print("Done Testing Actor Removal")
-    
-    
     def test_multiplication(self):
         print("Testing multiplication")
         
@@ -553,9 +884,8 @@ class BalancingRouterTest(unittest.TestCase):
     
     def runTest(self):
         self.test_creation()
-        self.test_addition()
-        self.test_removal()
-        self.test_multi_addition()
+        self.test_actor_addition()
+        self.test_multiplication()
         self.test_at_load()
 
 
@@ -578,7 +908,8 @@ def suite():
     suite = TestSuite()
     #suite.addTest(ActorTest())
     #suite.addTest(ActorSystemTest())
-    suite.addTest(RoundRobinRouterTest())
+    #suite.addTest(RoundRobinRouterTest())
+    suite.addTest(RandomRouterTest())
     return suite
 
 

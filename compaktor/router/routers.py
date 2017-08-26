@@ -223,12 +223,15 @@ class RoundRobinRouter(BaseActor):
         
         :param actor:  The actor to add to the router
         """
-        if actor not in self.actors:
+        if actor not in self.actor_set:
             self.actor_set.append(actor)
         
         if self.sys_path is not None and self.actor_system is not None:
             self.actor_system.add_actor(actor, self.sys_path)
             
+    
+    def get_num_actors(self):
+        return len(self.actor_set)
     
     
     def remove_actor(self,actor):
@@ -258,11 +261,19 @@ class RoundRobinRouter(BaseActor):
             sender = message.sender
             
         ind = self.current_index.get()
-        sender.tell(self.actor_set[ind],message)
+        await sender.tell(self.actor_set[ind],message)
         self.current_index.get_and_add(1)
         if self.current_index.get() is len(self.actor_set):
             self.current_index.get_and_set(0)
         
+    
+    def get_current_index(self):
+        """
+        The current index for the router.  Useful for debugging.
+        
+        :return:  The current index
+        """
+        return self.current_index.get()
         
     
     async def route_ask(self, message):
@@ -275,10 +286,12 @@ class RoundRobinRouter(BaseActor):
         sender = self
         if message.sender is not None:
             sender = message.sender
-        sender.ask(self.actor_set[self.current_index],message)
+        ind = self.current_index.get()
+        res = await sender.ask(self.actor_set[ind],message)
         self.current_index.get_and_add(1)
         if self.current_index.get() is len(self.actor_set):
             self.current_index.get_and_set(0)
+        return res
     
     
     async def broadcast(self, message):
@@ -291,6 +304,10 @@ class RoundRobinRouter(BaseActor):
         sender = self
         if message.sender is not None:
             sender = message.sender
-            
+        
+        rfuncs = []
         for actor in self.actor_set:
-            sender.tell(actor, message)
+            rfuncs.append(sender.tell(actor, message))
+        
+        for func in rfuncs:
+            await func
