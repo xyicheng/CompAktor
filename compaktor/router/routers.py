@@ -32,28 +32,60 @@ class BalancingRouter(BaseActor):
     """
     
     
-    def __init__(self, actors = [], *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.actors = actors
         self.max_inbox_size = kwargs.get('max_inbox_size',0)
-        self._queue = janus.Queue(maxsize = self.max_inbox_size,
+        self._queue_base = janus.Queue(maxsize = self.max_inbox_size,
                                     loop = self.loop)
-        raise Exception("Not Implemented Yet")
+        self._queue = self._queue_base.async_q
+        self.actor_set = kwargs.get('actors', [])
+        self.name = kwargs.get('name',super().get_name())
+        self.register_handler(RouteAsk, self.route_ask)
+        self.register_handler(RouteTell, self.route_tell)
+        self.register_handler(RouteBroadcast, self.attempt_broadcast)
+        self.actor_system = None
+        self.sys_path = None
     
     
-    def create_actor(self, actor_ref):
+    def close_queue(self):
+        self._queue_base.close()
+    
+    
+    def get_num_actors(self):
+        return len(self.actor_set)
+    
+    
+    def set_actor_system(self, actor_system, path):
+        """
+        Set the actor system for the router
+        
+        :param actor_system:  The actor system
+        :type actor_system:  ActorSystem
+        :param path:  The path to add the router to
+        :type path:  str
+        """
+        self.actor_system = actor_system
+        self.actor_system.add_actor(self, path)
+        self.sys_path = "{}/{}".format(path,self.name)
+        
+        for actor in self.actor_set:
+            self.actor_system.add_actor(actor, self.sys_path)
+    
+    
+    def add_actor(self, actor):
         """
         Add an actor to the ready queue.
         
         :param actor:  The actor ref to instantiatable code implementing Base Actor
         :type actor:  reference
         """
-        args = []
-        kwargs = {"loop" : self.loop, "queue" : self._queue}
-        actor = actor_ref(*args)
-        if actor not in self.actors:
-            self.actors.append(actor)
-    
+        if actor not in self.actor_set:
+            actor._inbox = self._queue
+            self.actor_set.append(actor)
+        
+        if self.sys_path is not None and self.actor_system is not None:
+            self.actor_system.add_actor(actor, self.sys_path)
+            
     
     def remove_actor(self,actor):
         """
@@ -62,9 +94,14 @@ class BalancingRouter(BaseActor):
         :param actor:  The implemented actor to remove
         :type actor:  BaseActor
         """
-        if actor not in self.actors:
-            self.actors.remove(actor)
-    
+        if actor in self.actor_set:
+            self.actor_set.remove(actor)
+        
+            #remove actor from system if set
+            if self.sys_path is not None:
+                path = "{}/{}".format(self.sys_path,actor.get_name())
+                self.actor_system.delete_branch(path)
+        
     
     async def route_ask(self, message):
         """
@@ -73,6 +110,7 @@ class BalancingRouter(BaseActor):
         assert isinstance(message, QueryMessage)
         if not message.result:
             message.result = asyncio.Future(loop = self.loop)
+        print("Putting In Queue")
         await self._queue.put(message)
         res = await message.result
         return res 
@@ -82,7 +120,7 @@ class BalancingRouter(BaseActor):
         """
         Send a tell request to the queue.  The queue calls on the actor should block.
         """
-        self._queue._put(message)
+        await self._queue.put(message)
         
     
     async def attempt_broadcast(self, message):
@@ -100,33 +138,74 @@ class RandomRouter(BaseActor):
     """
     
     
-    def __init__(self, actors = [], *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.actors = list(set(actors))
+        self.actor_set = kwargs.get('actors', [])
+        self.name = kwargs.get('name',super().get_name())
         self.register_handler(RouteAsk, self.route_ask)
         self.register_handler(RouteTell, self.route_tell)
-        self.register_hanlder(RouteBroadcast, self.broadcast)
+        self.register_handler(RouteBroadcast, self.broadcast)
+        self.last_active_check = 0
+        self.actor_system = None
+        self.sys_path = None
+    
+    
+    def get_num_actors(self):
+        """
+        Get the current number of actors
+        """
+        return len(self.actor_set)
+    
+    
+    def set_actor_system(self, actor_system, path):
+        """
+        Set the actor system for the router
         
+        :param actor_system:  The actor system
+        :type actor_system:  ActorSystem
+        :param path:  The path to add the router to
+        :type path:  str
+        """
+        self.actor_system = actor_system
+        self.actor_system.add_actor(self, path)
+        self.sys_path = "{}/{}".format(path,self.name)
         
+        for actor in self.actor_set:
+            self.actor_system.add_actor(actor, self.sys_path)
+    
+    
     def add_actor(self, actor):
         """
-        Add an actor to the ready queue.
+        Add an actor to the router's SET of actors.
         
-        :param actor:  The actor to add to the queue
+        :param actor:  The actor to add to the router
         """
-        if actor not in self.actors:
-            self.actors.append(actor)
+        if actor not in self.actor_set:
+            self.actor_set.append(actor)
+        
+        if self.sys_path is not None and self.actor_system is not None:
+            self.actor_system.add_actor(actor, self.sys_path)
+    
+    def get_name(self):
+        """
+        Get the router name
+        """
+        return self.name    
     
     
     def remove_actor(self,actor):
         """
-        Remove an actor from the router.
+        Remove an actor from the routers list of actors
         
-        :param actor:  The implemented actor to remove
-        :type actor:  BaseActor
+        :param actor:  The actor to remove
         """
-        if actor not in self.actors:
-            self.actors.remove(actor)
+        if actor in self.actor_set:
+            self.actor_set.remove(actor)
+            
+        #remove actor from system if set
+        if self.sys_path is not None:
+            path = "{}/{}".format(self.sys_path,actor.get_name())
+            self.actor_system.delete_branch(path)
 
 
     async def route_tell(self, message):
@@ -138,13 +217,13 @@ class RandomRouter(BaseActor):
         :param message:  The message to send
         :type message:  bytearray
         """
-        actor = random.choice(self.actors)
+        actor = random.choice(self.actor_set)
         
         sender = message.sender        
         if sender is None:
             sender = self
         
-        sender.tell(actor, message)
+        await sender.tell(actor, message)
             
     
     async def route_ask(self, message):
@@ -154,11 +233,11 @@ class RandomRouter(BaseActor):
         :param message:  The message to send
         :type message:  bytearray
         """
-        actor = random.choice(self.actors)
+        actor = random.choice(self.actor_set)
         sender = message.sender
         if sender is None:
             sender = self
-        sender.ask(sender, message)
+        return await sender.ask(actor, message)
         
     
     async def broadcast(self, message):
@@ -180,7 +259,7 @@ class RandomRouter(BaseActor):
             self.last_active_check = 0
         
         for actor in self.actor_set:
-            sender.tell(actor, message)
+            await sender.tell(actor, message)
 
 
 class RoundRobinRouter(BaseActor):
@@ -190,10 +269,10 @@ class RoundRobinRouter(BaseActor):
     """
     
     
-    def __init__(self, actors = [], *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = kwargs.get('name',super().get_name())
-        self.actor_set = list(set(actors))
+        self.actor_set = kwargs.get('actors', [])
         self.actor_set = []
         self.current_index = atomic.AtomicInteger()
         self.actor_system = None
