@@ -24,7 +24,13 @@ class MustBeSourceException(Exception): pass
 class WrongActorException(Exception): pass
 
 
+class SinkFunctionMissing(Exception): pass
+
+
 class SourceFunctionMissing(Exception): pass
+
+
+class AccountingActorNotSuppliedException(Exception): pass
 
 
 class SourceMissing(Exception): pass
@@ -43,6 +49,9 @@ class Work(Message):
     
     def __init__(self, work_unit, sender = None):
         super().__init__(work_unit, sender)
+
+
+class Push(Message): pass
 
 
 class Pull(Message):
@@ -75,7 +84,7 @@ class DemandState(Enum):
     BLOCKED = 2
 
 
-class AccountActor(BaseActor):
+class AccountingActor(BaseActor):
     """
     Demand actor that accounts for finished work and pushes pull rates 
     to the source.  
@@ -145,7 +154,7 @@ class TickActor(BaseActor):
         :type message:  Tick
         """
         async def do_tick():
-            self.tell(self._source, Pull())
+            await self.tell(self._source, Pull())
         self.loop.run_until_complete(do_tick())
         self.loop.call_later(self._tick_time, self.tell(self, Tick()))
         
@@ -193,6 +202,7 @@ class Source(BaseActor):
         #create tick actor
         self._tick_actor = TickActor()
         self.loop.run_until_complete(self._tick_actor.start())
+        self.children = [self._tick_actor]
         
     
     def handle_pull(self, message):
@@ -215,14 +225,106 @@ class Sink(BaseActor):
     The sink actor
     """
     
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         """
         Constructor
         
-        
+        :Keyword Arguments:
+            *accounting_calc_heartbeat (double):  Time between demand calculation
+            *push_function (function):  The function to use when pushing
+            *subscribers (list):  The list of subscribers
         """
-        pass
+        super().__init__(*args, **kwargs)
+        self._accounting_calc_heartbeat = kwargs.get('accounting_calc_heartbeat', 30)
+        self._push_function = kwargs.get('push_function', None)
+        
+        if self._push_function is None or isinstance(self._push_function, PubSub) is False:
+            raise SinkFunctionMissing(
+                "push_function must be specified with a Sink"
+                )
+            
+        self._subscriptions = kwargs.get('subscribers', None)
+        if self._subscriptions is None:
+            if len(self._subscriptions) > 0:
+                for subscriber in self._subscriptions:
+                    if isinstance(subscriber, PubSub) is False:
+                        raise WrongActorException("Subscriber in sink must be a PubSub")
+                    
+                    self.loop.run_until_complete(self.subscribe(subscriber)) #block on tell
+                    
+            else:
+                raise ValueError("Subscribers Cannot be Empty for Sink")
+        else:
+            raise ValueError("Subscribers must be provided for Sink")
+            
+        
+        self._accounting_actor = kwargs.get('demand_actor', None)
+        
+        if self._accounting_actor is None or isinstance(self._accounting_actor, AccountingActor) is False:
+            raise AccountingActorNotSuppliedException("Accounting actor not Supplied for Sink")
+        
+        self._last_demand = time.time()
+        self.register_handler(Push, self.handle_push)
+            
+    
+    async def subscribe(self, subscriber):
+        await self.tell(subscriber, Subscribe(self))
     
     
     def handle_push(self, message):
-        pass
+        push_time = time.time()
+        
+        self._push_function(message)
+        
+        if time.time() - self._last_accounting > self._accounting_calc_heartbeat:
+            push_time = time.time() - push_time
+            self.tell(self._accounting_actor, Demand(push_time))
+            self._last_accounting = time.time()
+
+
+class Stage(BaseActor):
+    
+    
+    def __init__(self, *args, **kwargs):
+        """
+        Constructor
+        
+        :Keyword Arguments:
+            *accounting_calc_heartbeat (double):  Time between demand calculation
+            *push_function (function):  The function to use when pushing
+            *publisher (PubSub): The output publishers
+            *subscriptions (list): A list of PubSubs to subscribe to 
+        """
+        super().__init__(*args, **kwargs)
+        self._publisher = kwargs.get('publisher', PubSub())
+        
+        if self._publisher is None or isinstance(self._publisher, PubSub) is False:
+            raise WrongActorException(
+                "Publisher Must be an instance of PubSub in Stage"
+                )
+        self._accounting_calc_heartbeat = kwargs.get('accounting_calc_heartbeat', 30)
+        self._push_function = kwargs.get('push_function', None)
+        
+        if self._push_function is None or isinstance(self._push_function, PubSub) is False:
+            raise SinkFunctionMissing(
+                "push_function must be specified with a Sink"
+                )
+        
+        self._accounting_actor = kwargs.get('demand_actor', None)
+        
+        if self._accounting_actor is None or isinstance(self._accounting_actor, AccountingActor) is False:
+            raise AccountingActorNotSuppliedException("Accounting actor not Supplied for Sink")
+        
+        self._last_demand = time.time()
+        self.register_handler(Push, self.handle_push)
+    
+    
+    def handle_push(self, message):
+        push_time = time.time()
+        
+        self._push_function(message)
+        
+        if time.time() - self._last_accounting > self._accounting_calc_heartbeat:
+            push_time = time.time() - push_time
+            self.tell(self._accounting_actor, Demand(push_time))
+            self._last_accounting = time.time()

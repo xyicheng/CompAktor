@@ -962,9 +962,9 @@ class BalancingRouterTest(unittest.TestCase):
     
     
     def runTest(self):
-        #self.test_creation()
-        #self.test_actor_addition()
-        #self.test_multiplication()
+        self.test_creation()
+        self.test_actor_addition()
+        self.test_multiplication()
         self.test_at_load()
 
 
@@ -985,10 +985,10 @@ class HealthCheckTest(unittest.TestCase):
 
 def suite():
     suite = TestSuite()
-    #suite.addTest(ActorTest())
-    #suite.addTest(ActorSystemTest())
-    #suite.addTest(RoundRobinRouterTest())
-    #suite.addTest(RandomRouterTest())
+    suite.addTest(ActorTest())
+    suite.addTest(ActorSystemTest())
+    suite.addTest(RoundRobinRouterTest())
+    suite.addTest(RandomRouterTest())
     suite.addTest(BalancingRouterTest())
     return suite
 

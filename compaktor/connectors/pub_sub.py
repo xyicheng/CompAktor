@@ -5,6 +5,7 @@ Created on Aug 30, 2017
 '''
 from compaktor.actor.actor import BaseActor
 from compaktor.actor.message import Message
+from compaktor.router.routers import RoundRobinRouter, RouteTell
 
 
 class Publish(Message): pass
@@ -28,9 +29,10 @@ class PubSub(BaseActor):
         
         :Keyword Arguments:
             *publisher (BaseActor): The publisher submitting messages to the pub/sub
+            *router (BaseActor): This must be a router for the subscribers
         """
         super().__init(*args, **kwargs)
-        self._subscribers = []
+        self._subscription_router = kwargs.get('router', RoundRobinRouter())
         self._publisher = None
         self.register_handler(Demand, self.handle_demand)
         self.register_handler(Subscribe, self.subscribe)
@@ -42,22 +44,14 @@ class PubSub(BaseActor):
         Subscribe to the pub/sub.  This will replace the subscriber queue to create 
         a balancing router. 
         """
-        if actor not in self.subscribers:
-            self._subscribers.append(actor)
+        self._subscription_router.add_actor(actor)
         
     
     def publish(self, message):
         """
-        Submit a message to the common subscription queue
+        Submit a message to a chosen actor in the subscribers
         """
-        pass
-    
-    
-    def handle_demand(self, message):
-        """
-        Handle demand by 
-        """
-        pass
+        self._tell(self._subscription_router, RouteTell(message))
 
     
     def handle_broadcast(self, message):
@@ -65,4 +59,4 @@ class PubSub(BaseActor):
         Broadcast to all actors.  Do not connect the actors subscribing here to a broadcast router.
         """
         for actor in self._subscribers:
-            self.tell(actor, message)
+            self.loop.run_until_complete(self.tell(actor, message))
