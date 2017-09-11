@@ -5,7 +5,7 @@ Created on Aug 30, 2017
 '''
 from compaktor.actor.actor import BaseActor
 from compaktor.actor.message import Message
-from compaktor.router.routers import RoundRobinRouter, RouteTell
+from compaktor.router.routers import RoundRobinRouter, RouteTell, RouteBroadcast
 
 
 class Publish(Message): pass
@@ -31,10 +31,9 @@ class PubSub(BaseActor):
             *publisher (BaseActor): The publisher submitting messages to the pub/sub
             *router (BaseActor): This must be a router for the subscribers
         """
-        super().__init(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._subscription_router = kwargs.get('router', RoundRobinRouter())
         self._publisher = None
-        self.register_handler(Demand, self.handle_demand)
         self.register_handler(Subscribe, self.subscribe)
         self.register_handler(Publish, self.publish)
         
@@ -45,6 +44,13 @@ class PubSub(BaseActor):
         a balancing router. 
         """
         self._subscription_router.add_actor(actor)
+    
+    
+    def broadcast(self, message):
+        """
+        Send a broadcast to all members of the publishers router
+        """
+        self.tell(self._publisher, RouteBroadcast(message))
         
     
     def publish(self, message):

@@ -8,10 +8,10 @@ Created on Aug 30, 2017
 import asyncio
 from enum import Enum
 import logging
+import math
 import pickle
 import time
-
-
+import traceback
 from compaktor.actor.actor import BaseActor
 from compaktor.connectors.pub_sub import PubSub
 from compaktor.actor.message import Message
@@ -41,14 +41,8 @@ class Demand(Message): pass
 
 class SetTickTime(Message): pass 
 
-class Work(Message):
-    """
-    A message sent on receipt of demand or to a pub sub for flow processing.
-    """
-    
-    
-    def __init__(self, work_unit, sender = None):
-        super().__init__(work_unit, sender)
+
+class FlowResult(Message): pass 
 
 
 class Push(Message): pass
@@ -90,7 +84,6 @@ class AccountingActor(BaseActor):
     to the source.  
     """
     
-    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._actor_map = {}
@@ -102,7 +95,6 @@ class AccountingActor(BaseActor):
         self._send_heartbeat = kwargs.get('max_wait',15) #in seconds
         self._last_send = time.time()
         self.register_handler(Demand, self.handle_demand)
-        
     
     def handle_demand(self, message):
         kv = message.payload
@@ -117,10 +109,21 @@ class AccountingActor(BaseActor):
             else:
                 self._actor_map[k] = self._actor_map[k][-2:].append(v)
         
-        if time.time() - self._last_send  >  self._send_heartbeat:
-            #send off the average 
-            self.tell(self._source, SetTickTime())
-            self._last_send = time.time()
+            if time.time() - self._last_send  >  self._send_heartbeat:
+                #send off the average
+                current_avg = 0 
+                for k in self._actor_map:
+                    d = self._actor_map[k]
+                    if len(d) > 0:
+                        avg = sum(d) / len(d)
+                        if avg  > current_avg:
+                            current_avg = avg
+                self.tell(self._source, SetTickTime(current_avg))
+                self._last_send = time.time()
+        else:
+            logging.warn(
+                "Message Must be of Type Demand. Received {}".format(type(message))
+                )
         
 
 class TickActor(BaseActor):
@@ -145,7 +148,6 @@ class TickActor(BaseActor):
             raise SourceMissing("Source Must Be Provided for Tick Actor")
         self.loop.call_later(self._tick_time, Tick())
         
-        
     def tick(self, message):
         """
         Perform action within each tick.
@@ -153,11 +155,12 @@ class TickActor(BaseActor):
         :param message:  Calling message (not handled)
         :type message:  Tick
         """
-        async def do_tick():
-            await self.tell(self._source, Pull())
-        self.loop.run_until_complete(do_tick())
-        self.loop.call_later(self._tick_time, self.tell(self, Tick()))
-        
+        while True:
+            print("Tick")
+            async def do_tick():
+                await self.tell(self._source, Pull())
+            self.loop.run_until_complete(do_tick())
+            self.loop.call_later(self._tick_time, self.tell(self, Tick()))        
     
     def set_tick_time(self, message):
         """
@@ -191,7 +194,7 @@ class Source(BaseActor):
         if isinstance(self._publisher, PubSub) is False:
             raise WrongActorException("pub_sub must be an instance of PubSub")
         
-        self._on_pull = kwargs.get('on_pull', None)
+        self._on_pull = kwargs.get('pull_function', None)
         
         if self._on_pull is None:
             raise SourceFunctionMissing("Function on_pull is missing.")
@@ -200,10 +203,26 @@ class Source(BaseActor):
         self._gc_actor = GCActor()
         
         #create tick actor
-        self._tick_actor = TickActor()
-        self.loop.run_until_complete(self._tick_actor.start())
+        tick_args = {'source' : self}
+        self._tick_actor = TickActor(*[], **tick_args)
+        self._tick_actor.start()
         self.children = [self._tick_actor]
-        
+        self.register_handler(Push, self.handle_pull)
+        self.register_handler(Subscribe, self._do_subscribe)
+
+    def subscribe(self, actor):
+        """
+        Subscribe to the pubsub on the source (connect an output)
+        """
+        if isinstance(actor, BaseActor) is False:
+            raise ValueError("Subscriber to the Source must be  a Base Actor.")
+        self._publisher.subscribe(actor)
+    
+    def _do_subscribe(self, actor):
+        """
+        Perform the Subscribe from an actor message
+        """
+        self.subscribe(actor.payload)
     
     def handle_pull(self, message):
         """
@@ -211,7 +230,7 @@ class Source(BaseActor):
         """
         
         result = self._on_pull()
-        
+        self.tell(self._publisher, FlowResult(result))
         current_time = time.time()
         if self._last_gc - current_time > self._gc_heartbeat:
             async def call_gc_actor():
@@ -219,8 +238,52 @@ class Source(BaseActor):
             self.loop.run_until_complete(call_gc_actor()) 
             self._last_gc = time.time()
         
-    
+
 class Sink(BaseActor):
+    
+    
+    def __init__(self, *args, **kwargs):
+        """
+        Constructor
+        
+        :Keyword Arguments:
+            *accounting_calc_heartbeat (double): Time between accounting actions
+            *accounting_actor (AccountingActor): Actor for accounting
+            *push_function (def): Function performed on push
+        """
+        super().__init__(*args, **kwargs)
+        self._accounting_calc_heartbeat = kwargs.get('accounting_calc_heartbeat', 30)
+        self._accounting_actor = kwargs.get('accounting_actor', None)
+        self._on_push = kwargs.get('push_function', None)
+        
+        if self._on_push is None:
+            raise SinkFunctionMissing("Sink Function must be supplied")
+        
+        if self._accounting_actor is None:
+            raise AccountingActorNotSuppliedException(
+                "Accounting actor not Supplied for Sink"
+                )
+        elif isinstance(self._accounting_actor, AccountingActor) is False:
+            raise AccountingActorNotSuppliedException(
+                    "Accounting Actor for Sink Cannot be of Type {}"
+                    .format(type(AccountingActor))
+                )
+        
+        self._last_demand = time.time()
+        self.register_handler(FlowResult, self.handle_push)
+
+    def handle_push(self, message):
+        push_time = time.time()
+        
+        self.tell(self._publisher,message)
+        
+        if time.time() - self._last_accounting > self._accounting_calc_heartbeat:
+            push_time = time.time() - push_time
+            self.tell(self._accounting_actor, Demand(push_time))
+            self._last_accounting = time.time()
+    
+    
+class PubSubSink(BaseActor):
     """
     The sink actor
     """
@@ -231,20 +294,21 @@ class Sink(BaseActor):
         
         :Keyword Arguments:
             *accounting_calc_heartbeat (double):  Time between demand calculation
-            *push_function (function):  The function to use when pushing
-            *subscribers (list):  The list of subscribers
+            *accounting_actor (AccountingActor): Actor for performing calculations
+            *pub_sub (PubSub):  A PubSub actor to use
+            *subscribers (list):  The list of subscribers. At least one initially.
         """
         super().__init__(*args, **kwargs)
         self._accounting_calc_heartbeat = kwargs.get('accounting_calc_heartbeat', 30)
-        self._push_function = kwargs.get('push_function', None)
+        self._publisher = kwargs.get('pub_sub', PubSub())
         
-        if self._push_function is None or isinstance(self._push_function, PubSub) is False:
+        if self._push_function is None:
             raise SinkFunctionMissing(
                 "push_function must be specified with a Sink"
                 )
             
         self._subscriptions = kwargs.get('subscribers', None)
-        if self._subscriptions is None:
+        if self._subscriptions is not None:
             if len(self._subscriptions) > 0:
                 for subscriber in self._subscriptions:
                     if isinstance(subscriber, PubSub) is False:
@@ -258,23 +322,21 @@ class Sink(BaseActor):
             raise ValueError("Subscribers must be provided for Sink")
             
         
-        self._accounting_actor = kwargs.get('demand_actor', None)
+        self._accounting_actor = kwargs.get('accounting_actor', None)
         
         if self._accounting_actor is None or isinstance(self._accounting_actor, AccountingActor) is False:
             raise AccountingActorNotSuppliedException("Accounting actor not Supplied for Sink")
         
         self._last_demand = time.time()
-        self.register_handler(Push, self.handle_push)
-            
+        self.register_handler(FlowResult, self.handle_push)
     
     async def subscribe(self, subscriber):
         await self.tell(subscriber, Subscribe(self))
     
-    
     def handle_push(self, message):
         push_time = time.time()
         
-        self._push_function(message)
+        self.tell(self._publisher,message)
         
         if time.time() - self._last_accounting > self._accounting_calc_heartbeat:
             push_time = time.time() - push_time
@@ -282,8 +344,16 @@ class Sink(BaseActor):
             self._last_accounting = time.time()
 
 
-class Stage(BaseActor):
+class DataFrameSink(BaseActor):
+    """
+    This sink takes in data and appends to a data frame using specified arguments.
+    """
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class Stage(BaseActor):    
     
     def __init__(self, *args, **kwargs):
         """
@@ -316,15 +386,33 @@ class Stage(BaseActor):
             raise AccountingActorNotSuppliedException("Accounting actor not Supplied for Sink")
         
         self._last_demand = time.time()
-        self.register_handler(Push, self.handle_push)
+        self.register_handler(FlowResult, self.handle_push)
     
+    def subscribe(self, message):
+        pass
+    
+    def _do_subscribe(self, message):
+        """
+        Perform the Subscribe from an actor message
+        """
+        self.subscribe(message.payload)
     
     def handle_push(self, message):
         push_time = time.time()
         
-        self._push_function(message)
+        result = self._push_function(message)
+        self.tell(self._publisher, FlowResult(result))
         
         if time.time() - self._last_accounting > self._accounting_calc_heartbeat:
             push_time = time.time() - push_time
             self.tell(self._accounting_actor, Demand(push_time))
             self._last_accounting = time.time()
+            
+
+class FlowControls():
+    
+    def __init__(self):
+        pass
+    
+    def manage_stream(self,source):
+        pass
