@@ -252,14 +252,27 @@ class BaseActor(AbstractActor):
         """
         Get the actor name
         
-        :return:  
+        :return: The name of the actor
+        :rtype:  str()  
         """
         return self.__NAME
     
     def register_handler(self, message_cls, func):
+        """
+        Registers a function for to be run when a type of message is used.
+        Both a Message and QueryMessage may be supplied
+        
+        :param message:  Thee message class
+        :type: <class Message>
+        :param func: The function to register.
+        :type func: def
+        """
         self._handlers[message_cls] = func
     
     async def _task(self):
+        """
+        The running task.  It is not recommended to override this function.
+        """
         message = await self._inbox.get()
         try:
             handler  = self._handlers[type(message)]
@@ -282,9 +295,19 @@ class BaseActor(AbstractActor):
             raise HandlerNotFoundError(type(message)) from ex
     
     async def _stop(self):
+        """
+        Waits for a poison pill.
+        """
         await self._receive(PoisonPill())
     
     async def _receive(self, message):
+        """
+        Receive functin for handling inbound messages
+        The message may be of type Message or QueryMessage
+        
+        :param message:  The message to enqueue
+        :type message:  Message()
+        """
         await self._inbox.put(message)
     
     async def _stop_message_handler(self, message): 
@@ -294,7 +317,25 @@ class BaseActor(AbstractActor):
         '''
         
     def __str__(self, *args, **kwargs):
-        return "Actor(name = {}, handlers = {}, status = {})".format(self.__NAME, str(self._handlers), self.get_state())
+        """
+        Get the actors string representation.
+        
+        :param args: List arguments
+        :type args: list()
+        :param kwargs: supplied kwargs
+        :type kwargs: dict()
+        
+        """
+        return "Actor(name = {}, handlers = {}, status = {})".format(
+                self.__NAME, str(self._handlers), self.get_state())
     
     def __repr__(self, *args, **kwargs):
+        """
+        Get the represenation from the AbstractoActor
+        
+        :param args: list args
+        :type args: list()
+        :param kwargs: Dictionary arguments
+        :type kwargs: dict()
+        """
         return AbstractActor.__repr__(self, *args, **kwargs) 
