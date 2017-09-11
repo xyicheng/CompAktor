@@ -1,7 +1,7 @@
 /.pydevproject
 .project
-/build
 *.pyc
 *cache
 .cache
 .cache/
+build
