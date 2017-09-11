@@ -8,7 +8,6 @@ Created on Aug 21, 2017
 
 
 class DeadLetterHandler(object):
-    
-    
+
     def __init__(self):
         pass
