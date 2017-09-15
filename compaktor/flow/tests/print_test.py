@@ -15,6 +15,7 @@ from compaktor.flow.tests.stream_in_test import FlowRunner
 from compaktor.actor.message import PoisonPill, Message
 import time
 from compaktor.connectors.pub_sub import Publish, Subscribe, PubSub
+import functools
 
 
 class Print(Message):
@@ -158,14 +159,26 @@ async def test_subscribe(pub, sub):
     await sub.tell(pub, Subscribe(sub))
 
 
+async def do_tick(actor):
+    await test_tick(actor)
+    asyncio.get_event_loop().call_later(actor._tick_time, functools.partial(ensure, actor))
+
+
+def ensure(actor):
+    asyncio.ensure_future(do_tick(actor))
+
+def repeat(actor, tick_time):
+    asyncio.get_event_loop().call_later(tick_time, ensure(actor))
+
 if __name__ == "__main__":
     source = PrintSource()
     source.start()
     accounting_actor = AccountingActor()
-    kwargs = {'source' : source, 'accounting_actor' : accounting_actor}
+    kwargs = {'source' : source, 'accounting_actor' : accounting_actor,'tick_time' : 0}
     tick_actor = TickActor(*[], **kwargs)
     tick_actor.start()
     sink = PrintSink()
     asyncio.get_event_loop().run_until_complete(test_subscribe(source, sink))
     while True:
-        asyncio.get_event_loop().run_until_complete(test_tick(tick_actor))
+        asyncio.get_event_loop().create_task(do_tick(tick_actor))
+        asyncio.get_event_loop().run_forever()

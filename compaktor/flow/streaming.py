@@ -16,6 +16,7 @@ from compaktor.actor.actor import BaseActor, ActorState, ActorStateError
 from compaktor.connectors.pub_sub import PubSub, Publish
 from compaktor.actor.message import Message
 from compaktor.gc.GCActor import GCActor, GCRequest
+from _datetime import datetime
 
 
 class MustBeSourceException(Exception):
