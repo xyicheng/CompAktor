@@ -48,6 +48,7 @@ class TickActor(BaseActor):
             raise KwargTypeIncorrect("Tick Time Must be int or float")
         self._tick_time = AtomicFloat(float(self._tick_time))
         self.register_handler(SetTickTime, self._set_tick_time)
+        self.register_handler(Tick, self.tick)
 
     def get_tick_time(self):
         """
@@ -136,12 +137,15 @@ class FlowRunner(object):
         if source and isinstance(source, BaseActor) is False:
             raise SourceNotAvailable("Must Provide Source to Flow.")
         self._source = source
+        if self._source.get_state() is not ActorState.RUNNING:
+            self._source.start()
         kwargs = {'source' : self._source}
         self._tick_actor = TickActor(*[], **kwargs)
+        self._tick_actor.start()
         self._accounting_actor = accounting_actor
+        if self._accounting_actor.get_state() is not ActorState.RUNNING:
+            self._accounting_actor.start()
         self._current_actors = [source]
-        self._accounting_actor.start()
-        self._source.start()
 
     async def _subscribe(self, stage_from, stage_to):
         """

@@ -51,15 +51,16 @@ class PubSub(BaseActor):
         """
         Send a broadcast to all members of the publishers router
         """
-        self.tell(self._publisher, RouteBroadcast(message))
+        self.loop.run_until_complete(self.tell(self._publisher, RouteBroadcast(message)))
 
-    def publish(self, message):
+    async def publish(self, message):
         """
         Submit a message to a chosen actor in the subscribers
         """
-        self._tell(self._subscription_router, RouteTell(message))
+        print("Pubish")
+        self.loop.run_until_complete(self._tell(self._subscription_router, RouteTell(message.payload)))
 
-    def handle_broadcast(self, message):
+    async def handle_broadcast(self, message):
         """
         Broadcast to all actors.  Do not connect the actors subscribing here
         to a broadcast router.

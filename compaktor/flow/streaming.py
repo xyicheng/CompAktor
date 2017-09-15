@@ -13,7 +13,7 @@ import pickle
 import time
 import traceback
 from compaktor.actor.actor import BaseActor
-from compaktor.connectors.pub_sub import PubSub
+from compaktor.connectors.pub_sub import PubSub, Publish
 from compaktor.actor.message import Message
 from compaktor.gc.GCActor import GCActor, GCRequest
 
@@ -157,22 +157,15 @@ class TickActor(BaseActor):
         self._source = kwargs.get('source', None)
         if self._source is None:
             raise SourceMissing("Source Must Be Provided for Tick Actor")
-        self.loop.call_later(self._tick_time, Tick())
 
-    def tick(self, message):
+    async def tick(self, message):
         """
         Perform action within each tick.
 
         :param message:  Calling message (not handled)
         :type message:  Tick
-        """
-        while True:
-            print("Tick")
-
-            async def do_tick():
-                await self.tell(self._source, Pull())
-            self.loop.run_until_complete(do_tick())
-            self.loop.call_later(self._tick_time, self.tell(self, Tick()))
+        """ 
+        await self.tell(self._source, Pull(self.get_state()))
 
     def set_tick_time(self, message):
         """
@@ -219,10 +212,11 @@ class Source(BaseActor):
         self._tick_actor = TickActor(*[], **tick_args)
         self._tick_actor.start()
         self.children = [self._tick_actor]
-        self.register_handler(Push, self.handle_pull)
-        self.register_handler(Subscribe, self._do_subscribe)
+        self.register_handler(Pull, self.__handle_pull)
+        self.register_handler(Push, self.__handle_pull)
+        self.register_handler(Subscribe, self.subscribe)
 
-    def subscribe(self, actor):
+    async def __do_subscribe(self, actor):
         """
         Subscribe to the pubsub on the source (connect an output)
         """
@@ -230,25 +224,38 @@ class Source(BaseActor):
             raise ValueError("Subscriber to the Source must be  a Base Actor.")
         self._publisher.subscribe(actor)
 
-    def _do_subscribe(self, actor):
+    async def __handle_subscribe(self, actor):
         """
         Perform the Subscribe from an actor message
         """
-        self.subscribe(actor.payload)
+        await self.__do_subscribe(actor.payload)
 
-    def handle_pull(self, message):
+    def subscribe(self, message):
+        self.loop.run_until_complete(self.__subscribe(message))
+        print("Subscribed")
+
+    async def __handle_pull(self, message):
         """
         Calls the pull function after receiving a request from the TickActor
         """
+        try:
+            result = self._on_pull(message)
+            print("Telling")
+            await self.tell(self._publisher, FlowResult(result))
+            current_time = time.time()
+            if self._last_gc - current_time > self._gc_heartbeat:
+                async def call_gc_actor():
+                    await self.tell(self._gc_actor, GCRequest())
+                print("Calling GC")
+                await call_gc_actor()
+                print("Resetting GC")
+                self._last_gc = time.time()
+            print("Complete")
+        except Exception as e:
+            self.handle_fail()
 
-        result = self._on_pull()
-        self.tell(self._publisher, FlowResult(result))
-        current_time = time.time()
-        if self._last_gc - current_time > self._gc_heartbeat:
-            async def call_gc_actor():
-                await self.tell(self._gc_actor, GCRequest())
-            self.loop.run_until_complete(call_gc_actor())
-            self._last_gc = time.time()
+    def do_pull(self, message):
+        self.loop.run_until_complete(self.handle_pull(message))
 
 
 class Sink(BaseActor):
@@ -348,7 +355,7 @@ class PubSubSink(BaseActor):
     async def subscribe(self, subscriber):
         await self.tell(subscriber, Subscribe(self))
 
-    def handle_push(self, message):
+    async def handle_push(self, message):
         push_time = time.time()
 
         self.tell(self._publisher, message)
@@ -418,7 +425,7 @@ class Stage(BaseActor):
         """
         self.subscribe(message.payload)
 
-    def handle_push(self, message):
+    async def handle_push(self, message):
         push_time = time.time()
 
         result = self._push_function(message)
