@@ -17,29 +17,28 @@ import time
 from compaktor.connectors.pub_sub import Publish, Subscribe, PubSub
 
 
-class Print(Message): pass
+class Print(Message):
+    pass
 
 
 class PrintSource(Source):
     
     def __init__(self, *args, **kwargs):
-        self.publisher = PubSub()
-        kwargs = {'pull_function' : self.pull, 'pub_sub' : self.publisher}
+        kwargs = {'pull_function' : self.pull}
         super().__init__(*args, **kwargs)
         self.register_handler(Subscribe, self.subscribe)
-    
+
     def pull(self, message):
-        print("Getting Message")
         return "Hello World!"
 
-        
+
 class StageSource(Stage):
-    
+
     def __init__(self, *args , **kwargs):
         kwargs = {}
         super().__init__(*args, **kwargs)
 
-    
+
 class PrintSink(Sink):
     
     def __init__(self, *args, **kwargs):
@@ -56,7 +55,7 @@ class PrintSink(Sink):
         self.register_handler(FlowResult, self.do_print)
         self.register_handler(Print, self.do_print)
         self.register_handler(Publish, self.do_print)
-    
+
     async def do_print(self, message):
         print(message)
 

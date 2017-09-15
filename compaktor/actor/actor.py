@@ -290,10 +290,12 @@ class BaseActor(AbstractActor):
                 else:
                     logging.warning('Unhandled exception from handler of '
                                     '{0}'.format(type(message)))
+                    self.handle_fail()
             else:
                 if is_query:
                     message.result.set_result(response)
         except KeyError as ex:
+            self.handle_fail()
             raise HandlerNotFoundError(type(message)) from ex
 
     async def _stop(self):

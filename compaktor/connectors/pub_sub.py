@@ -38,32 +38,43 @@ class PubSub(BaseActor):
         self._subscription_router = kwargs.get('router', RoundRobinRouter())
         self._publisher = None
         self.register_handler(Subscribe, self.subscribe)
-        self.register_handler(Publish, self.publish)
+        self.register_handler(Publish, self.do_publish)
 
     def subscribe(self, actor):
         """
         Subscribe to the pub/sub.  This will replace the subscriber queue to
         create a balancing router.
         """
-        self._subscription_router.add_actor(actor)
+        try:
+            self._subscription_router.add_actor(actor)
+        except Exception as e:
+            self.handle_fail()
 
     def broadcast(self, message):
         """
         Send a broadcast to all members of the publishers router
         """
-        self.loop.run_until_complete(self.tell(self._publisher, RouteBroadcast(message)))
+        try:
+            self.loop.run_until_complete(self.tell(self._publisher, RouteBroadcast(message)))
+        except Exception as e:
+            self.handle_fail()
 
-    async def publish(self, message):
+    async def do_publish(self, message):
         """
         Submit a message to a chosen actor in the subscribers
         """
-        print("Pubish")
-        self.loop.run_until_complete(self._tell(self._subscription_router, RouteTell(message.payload)))
+        try:
+            await self._tell(self._subscription_router, RouteTell(message.payload))
+        except Exception as e:
+            self.handle_fail()
 
     async def handle_broadcast(self, message):
         """
         Broadcast to all actors.  Do not connect the actors subscribing here
         to a broadcast router.
         """
-        for actor in self._subscribers:
-            self.loop.run_until_complete(self.tell(actor, message))
+        try:
+            for actor in self._subscribers:
+                await self.tell(actor, message)
+        except Exception as e:
+            self.handle_fail()

@@ -164,7 +164,7 @@ class TickActor(BaseActor):
 
         :param message:  Calling message (not handled)
         :type message:  Tick
-        """ 
+        """
         await self.tell(self._source, Pull(self.get_state()))
 
     def set_tick_time(self, message):
@@ -216,23 +216,32 @@ class Source(BaseActor):
         self.register_handler(Push, self.__handle_pull)
         self.register_handler(Subscribe, self.subscribe)
 
-    async def __do_subscribe(self, actor):
+    async def __subscribe(self, message):
         """
         Subscribe to the pubsub on the source (connect an output)
         """
-        if isinstance(actor, BaseActor) is False:
-            raise ValueError("Subscriber to the Source must be  a Base Actor.")
-        self._publisher.subscribe(actor)
+        try:
+            actor = message.payload
+            if isinstance(actor, BaseActor) is False:
+                raise ValueError("Subscriber to the Source must be  a Base Actor.")
+            self._publisher.subscribe(actor)
+        except Exception as e:
+            self.handle_fail()
 
     async def __handle_subscribe(self, actor):
         """
         Perform the Subscribe from an actor message
         """
-        await self.__do_subscribe(actor.payload)
+        try:
+            await self.__do_subscribe(actor.payload)
+        except Exception as e:
+            self.handle_fail()
 
-    def subscribe(self, message):
-        self.loop.run_until_complete(self.__subscribe(message))
-        print("Subscribed")
+    async def subscribe(self, message):
+        try:
+            await self.__subscribe(message)
+        except Exception as e:
+            self.handle_fail()
 
     async def __handle_pull(self, message):
         """
@@ -240,17 +249,14 @@ class Source(BaseActor):
         """
         try:
             result = self._on_pull(message)
-            print("Telling")
-            await self.tell(self._publisher, FlowResult(result))
+            pub = Publish(FlowResult(result))
+            await self.tell(self._publisher, pub)
             current_time = time.time()
             if self._last_gc - current_time > self._gc_heartbeat:
                 async def call_gc_actor():
                     await self.tell(self._gc_actor, GCRequest())
-                print("Calling GC")
                 await call_gc_actor()
-                print("Resetting GC")
                 self._last_gc = time.time()
-            print("Complete")
         except Exception as e:
             self.handle_fail()
 
