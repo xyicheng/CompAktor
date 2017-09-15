@@ -12,7 +12,7 @@ import math
 import pickle
 import time
 import traceback
-from compaktor.actor.actor import BaseActor
+from compaktor.actor.actor import BaseActor, ActorState, ActorStateError
 from compaktor.connectors.pub_sub import PubSub, Publish
 from compaktor.actor.message import Message
 from compaktor.gc.GCActor import GCActor, GCRequest
@@ -195,10 +195,16 @@ class Source(BaseActor):
         super().__init__(*args, **kwargs)
         self._gc_heartbeat = kwargs.get('gc_heart_beat', 300)  # seconds
         self._publisher = kwargs.get('pub_sub', PubSub())
-
         if isinstance(self._publisher, PubSub) is False:
             raise WrongActorException("pub_sub must be an instance of PubSub")
-
+        
+        if self._publisher.get_state() is ActorState.LIMBO:
+            self._publisher.start()
+        
+        if self._publisher.get_state() is not ActorState.RUNNING:
+            raise ActorStateError(
+                "Pubisher is not Started and Not Startable in Source")
+        
         self._on_pull = kwargs.get('pull_function', None)
 
         if self._on_pull is None:
@@ -212,6 +218,7 @@ class Source(BaseActor):
         self._tick_actor = TickActor(*[], **tick_args)
         self._tick_actor.start()
         self.children = [self._tick_actor]
+        self.register_handler(Publish, self.__handle_pull)
         self.register_handler(Pull, self.__handle_pull)
         self.register_handler(Push, self.__handle_pull)
         self.register_handler(Subscribe, self.subscribe)
@@ -250,7 +257,9 @@ class Source(BaseActor):
         try:
             result = self._on_pull(message)
             pub = Publish(FlowResult(result))
+            print("Trying to Publish")
             await self.tell(self._publisher, pub)
+            print("Done Trying")
             current_time = time.time()
             if self._last_gc - current_time > self._gc_heartbeat:
                 async def call_gc_actor():

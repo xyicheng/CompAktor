@@ -16,6 +16,10 @@ from atomos.atomic import AtomicLong
 from compaktor.actor.message import QueryMessage, PoisonPill
 
 
+class ActorStateError(Exception):
+    pass
+
+
 # long will be fine for now
 class NameCreationUtils():
     """
@@ -203,12 +207,15 @@ class AbstractActor(object):
         :param message:  The appropriate message to send
         :type message:  QueryMessage
         """
-        assert isinstance(message, QueryMessage)
-        if not message.result:
-            message.result = asyncio.Future(loop=self.loop)
-        await self.tell(target, message)
-        res = await message.result
-        return res
+        try:
+            assert isinstance(message, QueryMessage)
+            if not message.result:
+                message.result = asyncio.Future(loop=self.loop)
+            await self.tell(target, message)
+            res = await message.result
+            return res
+        except Exception as e:
+            self.handle_fail()
 
     def handle_fail(self):
         """

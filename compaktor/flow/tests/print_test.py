@@ -57,7 +57,7 @@ class PrintSink(Sink):
         self.register_handler(Publish, self.do_print)
 
     async def do_print(self, message):
-        print(message)
+        print(message.payload)
 
 
 def test_closeable():

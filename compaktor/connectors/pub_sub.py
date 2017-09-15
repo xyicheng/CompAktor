@@ -3,7 +3,7 @@ Created on Aug 30, 2017
 
 @author: aevans
 '''
-from compaktor.actor.actor import BaseActor
+from compaktor.actor.actor import BaseActor, ActorState, ActorStateError
 from compaktor.actor.message import Message
 from compaktor.router.routers import RoundRobinRouter, RouteTell
 from compaktor.router.routers import RouteBroadcast
@@ -36,6 +36,13 @@ class PubSub(BaseActor):
         """
         super().__init__(*args, **kwargs)
         self._subscription_router = kwargs.get('router', RoundRobinRouter())
+        
+        if self._subscription_router.get_state() is ActorState.LIMBO:
+            self._subscription_router.start()
+
+        if self._subscription_router.get_state() is not ActorState.RUNNING:
+            raise ActorStateError("Router not Started in PubSub")
+
         self._publisher = None
         self.register_handler(Subscribe, self.subscribe)
         self.register_handler(Publish, self.do_publish)
@@ -64,7 +71,7 @@ class PubSub(BaseActor):
         Submit a message to a chosen actor in the subscribers
         """
         try:
-            await self._tell(self._subscription_router, RouteTell(message.payload))
+            await self.tell(self._subscription_router, RouteTell(message.payload))
         except Exception as e:
             self.handle_fail()
 

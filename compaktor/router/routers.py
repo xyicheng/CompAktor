@@ -11,7 +11,8 @@ import asyncio
 import random
 from atomos import atomic
 import janus
-from compaktor.actor.actor import BaseActor, ActorState, QueryMessage
+from compaktor.actor.actor import BaseActor, ActorState, QueryMessage,\
+    ActorStateError
 from compaktor.actor.message import Message
 
 
@@ -212,7 +213,6 @@ class RandomRouter(BaseActor):
         sender = message.sender
         if sender is None:
             sender = self
-
         await sender.tell(actor, message)
 
     async def route_ask(self, message):
@@ -264,6 +264,8 @@ class RoundRobinRouter(BaseActor):
         self.current_index = atomic.AtomicInteger()
         self.actor_system = None
         self.sys_path = None
+        self.register_handler(RouteTell, self.route_tell)
+        self.register_handler(RouteAsk, self.route_ask)
 
     def set_actor_system(self, actor_system, path):
         """
@@ -287,6 +289,13 @@ class RoundRobinRouter(BaseActor):
 
         :param actor:  The actor to add to the router
         """
+        if actor.get_state() is ActorState.LIMBO:
+            actor.start()
+
+        if actor.get_state() is not ActorState.RUNNING:
+            raise ActorStateError(
+                "Actor to Add to Round Robin Router Not Working")
+        
         if actor not in self.actor_set:
             self.actor_set.append(actor)
 
@@ -317,15 +326,18 @@ class RoundRobinRouter(BaseActor):
         :param message:  The message to send
         :type message:  bytearray
         """
-        sender = self
-        if message.sender is not None:
-            sender = message.sender
-
-        ind = self.current_index.get()
-        await sender.tell(self.actor_set[ind], message)
-        self.current_index.get_and_add(1)
-        if self.current_index.get() is len(self.actor_set):
-            self.current_index.get_and_set(0)
+        try:
+            sender = self
+            if message.sender is not None:
+                sender = message.sender
+    
+            ind = self.current_index.get()
+            await sender.tell(self.actor_set[ind], message.payload)
+            self.current_index.get_and_add(1)
+            if self.current_index.get() is len(self.actor_set):
+                self.current_index.get_and_set(0)
+        except Exception as e:
+            self.handle_fail()
 
     def get_current_index(self):
         """
