@@ -78,6 +78,13 @@ class BalancingRouter(BaseActor):
         :param actor:  A base actor for the router
         :type actor:  BaseActor
         """
+        if actor.get_state() is ActorState.LIMBO:
+            actor.start()
+
+        if actor.get_state() is not ActorState.RUNNING:
+            raise ActorStateError(
+                "Actor to Add to Round Robin Router Not Working")
+
         if actor not in self.actor_set:
             actor._inbox = self._queue
             self.actor_set.append(actor)
@@ -173,6 +180,13 @@ class RandomRouter(BaseActor):
 
         :param actor:  The actor to add to the router
         """
+        if actor.get_state() is ActorState.LIMBO:
+            actor.start()
+
+        if actor.get_state() is not ActorState.RUNNING:
+            raise ActorStateError(
+                "Actor to Add to Round Robin Router Not Working")
+
         if actor not in self.actor_set:
             self.actor_set.append(actor)
 
