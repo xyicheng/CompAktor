@@ -17,6 +17,9 @@ from compaktor.connectors.pub_sub import PubSub, Publish
 from compaktor.actor.message import Message
 from compaktor.gc.GCActor import GCActor, GCRequest
 from _datetime import datetime
+from atomos.atomic import AtomicFloat
+from compaktor.utilities.type_utils import is_num
+import functools
 
 
 class MustBeSourceException(Exception):
@@ -154,10 +157,16 @@ class TickActor(BaseActor):
         """
         super().__init__(*args, **kwargs)
         self._tick_time = kwargs.get('tick_time', .25)  # seconds
-        self.register_handler(Tick, self.tick)
+
+        if is_num(self._tick_time):
+            self._tick_time = AtomicFloat(float(self._tick_time))
+        else:
+            raise TypeError("Tick Time must be a number")
+
         self._source = kwargs.get('source', None)
         if self._source is None:
             raise SourceMissing("Source Must Be Provided for Tick Actor")
+        self._do_loop()
 
     async def tick(self, message):
         """
@@ -168,6 +177,10 @@ class TickActor(BaseActor):
         """
         await self.tell(self._source, Pull(self.get_state()))
 
+    async def __handle_tick_iteration(self):
+        await self.tick(Tick())
+        self.loop.call_later(self._tick_time.get(),functools.partial(self._do_loop))
+
     def set_tick_time(self, message):
         """
         Set the time between ticks.
@@ -176,8 +189,18 @@ class TickActor(BaseActor):
         :type message:  SetTickTime
         """
         t = message.payload
-        if t is not None and isinstance(t, float) or isinstance(t, int):
-            self._tick_time = t
+        if t is not None and is_num(t):
+            self._tick_time.set(float(t))
+        else:
+            logging.warn(
+                "Can only Set Tick Time with a float or int\
+                 ({})".format(str(t)))
+
+    def _do_loop(self):
+        """
+        Starts the tick loop. Called by the constructor
+        """
+        asyncio.ensure_future(self.__handle_tick_iteration())
 
 
 class Source(BaseActor):
@@ -204,7 +227,7 @@ class Source(BaseActor):
         
         if self._publisher.get_state() is not ActorState.RUNNING:
             raise ActorStateError(
-                "Pubisher is not Started and Not Startable in Source")
+                "Publisher is not Started and Not Startable in Source")
         
         self._on_pull = kwargs.get('pull_function', None)
 
@@ -223,6 +246,14 @@ class Source(BaseActor):
         self.register_handler(Pull, self.__handle_pull)
         self.register_handler(Push, self.__handle_pull)
         self.register_handler(Subscribe, self.subscribe)
+
+    def get_publisher(self):
+        """
+        Returns the publisher for more immediate subscription.
+        :return: The publisher
+        :rtype: PubSub()
+        """
+        return self._publisher
 
     async def __subscribe(self, message):
         """
