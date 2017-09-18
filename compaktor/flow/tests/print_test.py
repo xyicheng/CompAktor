@@ -144,8 +144,49 @@ def test_print_flow():
 
 
 def test_stage_connection():
-    pass
+    async def shutdown_system(source):
+        await source.tell(source, PoisonPill()) 
+    accounting_actor = AccountingActor()
+    skwargs = {'accounting_actor' : accounting_actor}
+    source = PrintSource(*[], **skwargs)
+    source.start()
+    accounting_actor = AccountingActor()
+    kwargs = {'source' : source, 'accounting_actor' : accounting_actor,
+              'tick_time' : 0}
+    stage = StringManipulationStage(*[], **kwargs)
+    source.get_publisher().subscribe(stage)
+    tick_actor = TickActor(*[], **kwargs)
+    tick_actor.start()
+    sink = PrintSink()
+    stage.get_publisher().subscribe(sink)
+    asyncio.get_event_loop().run_until_complete(shutdown_system(source))
 
+def test_multi_stage_connection():
+    async def shutdown_system(source):
+        await source.tell(source, PoisonPill()) 
+    accounting_actor = AccountingActor()
+    skwargs = {'accounting_actor' : accounting_actor}
+    source = PrintSource(*[], **skwargs)
+    source.start()
+    accounting_actor = AccountingActor()
+    kwargs = {'source' : source, 'accounting_actor' : accounting_actor,
+              'tick_time' : 0}
+    stage = StringManipulationStage(*[], **kwargs)
+    source.get_publisher().subscribe(stage)
+    stageb = StringManipulationStage(*[], **kwargs)
+    stage.get_publisher().subscribe(stageb)
+    stagec = StringManipulationStage(*[], **kwargs)
+    stageb.get_publisher().subscribe(stagec)
+    staged = StringManipulationStage(*[], **kwargs)
+    stagec.get_publisher().subscribe(staged)
+    stagee = StringManipulationStage(*[], **kwargs)
+    staged.get_publisher().subscribe(stagee)
+    source.get_publisher().subscribe(stage)
+    tick_actor = TickActor(*[], **kwargs)
+    tick_actor.start()
+    sink = PrintSink()
+    stagee.get_publisher().subscribe(sink)
+    asyncio.get_event_loop().run_until_complete(shutdown_system(source))
 
 async def test_tick(actor):
     await actor.tell(actor, Tick())
@@ -165,8 +206,17 @@ if __name__ == "__main__":
               'tick_time' : 0}
     stage = StringManipulationStage(*[], **kwargs)
     source.get_publisher().subscribe(stage)
+    stageb = StringManipulationStage(*[], **kwargs)
+    stage.get_publisher().subscribe(stageb)
+    stagec = StringManipulationStage(*[], **kwargs)
+    stageb.get_publisher().subscribe(stagec)
+    staged = StringManipulationStage(*[], **kwargs)
+    stagec.get_publisher().subscribe(staged)
+    stagee = StringManipulationStage(*[], **kwargs)
+    staged.get_publisher().subscribe(stagee)
+    source.get_publisher().subscribe(stage)
     tick_actor = TickActor(*[], **kwargs)
     tick_actor.start()
     sink = PrintSink()
-    stage.get_publisher().subscribe(sink)
+    stagee.get_publisher().subscribe(sink)
     asyncio.get_event_loop().run_forever()
