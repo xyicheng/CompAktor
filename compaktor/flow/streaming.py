@@ -16,11 +16,9 @@ from compaktor.actor.actor import BaseActor, ActorState, ActorStateError
 from compaktor.connectors.pub_sub import PubSub, Publish
 from compaktor.actor.message import Message
 from compaktor.gc.GCActor import GCActor, GCRequest
-from _datetime import datetime
 from atomos.atomic import AtomicFloat
 from compaktor.utilities.type_utils import is_num
 import functools
-
 
 class MustBeSourceException(Exception):
     pass
@@ -289,9 +287,7 @@ class Source(BaseActor):
         try:
             result = self._on_pull(message)
             pub = Publish(FlowResult(result))
-            print("Trying to Publish")
             await self.tell(self._publisher, pub)
-            print("Done Trying")
             current_time = time.time()
             if self._last_gc - current_time > self._gc_heartbeat:
                 async def call_gc_actor():
@@ -434,6 +430,7 @@ class Stage(BaseActor):
             *push_function (function):  The function to use when pushing
             *publisher (PubSub): The output publishers
             *subscriptions (list): A list of PubSubs to subscribe to
+            *accounting_actor: The actor for back pressure
         """
         super().__init__(*args, **kwargs)
         self._publisher = kwargs.get('publisher', PubSub())
@@ -443,28 +440,40 @@ class Stage(BaseActor):
             raise WrongActorException(
                 "Publisher Must be an instance of PubSub in Stage"
             )
+        
+        if self._publisher.get_state() is ActorState.LIMBO:
+            self._publisher.start()
+
+        if self._publisher.get_state() is not ActorState.RUNNING:
+            raise ActorStateError("Publisher not Started in Stage")
+            
         self._accounting_calc_heartbeat = kwargs.get(
             'accounting_calc_heartbeat', 30)
-        self._push_function = kwargs.get('push_function', None)
+        self._func = kwargs.get('func', None)
 
-        is_pub_sub = isinstance(self._push_function, PubSub)
-        if self._push_function is None or is_pub_sub is False:
+        self._push_function = kwargs.get('func', None)        
+        if self._push_function is None:
             raise SinkFunctionMissing(
                 "push_function must be specified with a Sink"
             )
 
-        self._accounting_actor = kwargs.get('demand_actor', None)
-
+        self._accounting_actor = kwargs.get('accounting_actor', None)
         is_acct_actor = isinstance(self._accounting_actor, AccountingActor)
         if self._accounting_actor is None or is_acct_actor is False:
             raise AccountingActorNotSuppliedException(
                 "Accounting actor not Supplied for Sink")
 
-        self._last_demand = time.time()
+        if self._accounting_actor.get_state() is ActorState.LIMBO:
+            self._accounting_actor.start()
+        
+        if self._accounting_actor.get_state() is not ActorState.RUNNING:
+            raise ActorStateError("Acccounting Actor not running in stage.")
+
+        self._last_accounting = time.time()
         self.register_handler(FlowResult, self.handle_push)
 
-    def subscribe(self, message):
-        pass
+    def subscribe(self, actor):
+        self._publisher.subscribe(actor)
 
     def _do_subscribe(self, message):
         """
@@ -472,23 +481,35 @@ class Stage(BaseActor):
         """
         self.subscribe(message.payload)
 
+    def get_publisher(self):
+        """
+        Get the publisher.
+
+        :return: The publisher or None
+        :rtype: PubSub()
+        """
+        return self._publisher
+
     async def handle_push(self, message):
-        push_time = time.time()
+        if self._accounting_actor:
+            push_time = time.time()
 
-        result = self._push_function(message)
-        self.tell(self._publisher, FlowResult(result))
-
-        last_time = time.time() - self._last_accounting
-        if last_time > self._accounting_calc_heartbeat:
-            push_time = time.time() - push_time
-            self.tell(self._accounting_actor, Demand(push_time))
-            self._last_accounting = time.time()
+        result = self._func(message)
+        pub = Publish(FlowResult(result))
+        await self.tell(self._publisher, pub)
+        
+        if self._accounting_actor:
+            last_time = time.time() - self._last_accounting
+            if last_time > self._accounting_calc_heartbeat:
+                push_time = time.time() - push_time
+                self.tell(self._accounting_actor, Demand(push_time))
+                self._last_accounting = time.time()
 
 
 class FlowControls():
 
-    def __init__(self):
-        pass
+    def __init__(self, source, create_loop = False):
+        self._current_loop = None
 
     def manage_stream(self, source):
         pass
