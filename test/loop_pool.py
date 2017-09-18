@@ -75,7 +75,7 @@ if __name__ == "__main__":
     pool = LoopThreadPool()
     actors = []
     loops = []
-    for i in range(0, 100):
+    for i in range(0, 100000):
         loop = pool.create_loop()
         loops.append(loop)
         kwargs = {'loop' : loop}
