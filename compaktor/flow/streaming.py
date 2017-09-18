@@ -508,8 +508,8 @@ class Stage(BaseActor):
 
 class FlowControls():
 
-    def __init__(self):
-        pass
+    def __init__(self, source, create_loop = False):
+        self._current_loop = None
 
     def manage_stream(self, source):
         pass

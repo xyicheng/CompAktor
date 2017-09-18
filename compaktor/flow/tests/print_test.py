@@ -198,25 +198,5 @@ async def test_subscribe(pub, sub):
 
 if __name__ == "__main__":
     accounting_actor = AccountingActor()
-    skwargs = {'accounting_actor' : accounting_actor}
-    source = PrintSource(*[], **skwargs)
-    source.start()
-    accounting_actor = AccountingActor()
-    kwargs = {'source' : source, 'accounting_actor' : accounting_actor,
-              'tick_time' : 0}
-    stage = StringManipulationStage(*[], **kwargs)
-    source.get_publisher().subscribe(stage)
-    stageb = StringManipulationStage(*[], **kwargs)
-    stage.get_publisher().subscribe(stageb)
-    stagec = StringManipulationStage(*[], **kwargs)
-    stageb.get_publisher().subscribe(stagec)
-    staged = StringManipulationStage(*[], **kwargs)
-    stagec.get_publisher().subscribe(staged)
-    stagee = StringManipulationStage(*[], **kwargs)
-    staged.get_publisher().subscribe(stagee)
-    source.get_publisher().subscribe(stage)
-    tick_actor = TickActor(*[], **kwargs)
-    tick_actor.start()
-    sink = PrintSink()
-    stagee.get_publisher().subscribe(sink)
+    
     asyncio.get_event_loop().run_forever()
