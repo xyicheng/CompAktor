@@ -242,13 +242,12 @@ class BaseActor(AbstractActor):
             -max_inbox_size (int): Max number of messages in the inbox
         """
         name = kwargs.get('name', None)
-        loop = kwargs.get('loop', None)
+        self.loop = kwargs.get('loop', None)
         address = kwargs.get('address', None)
-        abs_kwargs = {'name': name, 'loop': loop, 'address': address}
+        abs_kwargs = {'name': name, 'loop': self.loop, 'address': address}
         super().__init__(*args, **abs_kwargs)
         self.__NAME = kwargs.get('name', str(
             NameCreationUtils.get_name_base()))
-        self.loop = kwargs.get('loop', self.loop)
         self._max_inbox_size = kwargs.get('max_inbox_size', 0)
         self._inbox = kwargs.get('queue', asyncio.Queue(
             maxsize=self._max_inbox_size, loop=self.loop))
@@ -287,10 +286,11 @@ class BaseActor(AbstractActor):
             handler = self._handlers[type(message)]
             is_query = isinstance(message, QueryMessage)
             try:
-                if handler is not None:
+                if handler:
                     response = await handler(message)
                 else:
                     logging.warning("Handler is NoneType")
+                    self.handle_fail()
             except Exception as ex:
                 if is_query:
                     message.result.set_exception(ex)
