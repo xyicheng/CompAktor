@@ -60,14 +60,15 @@ def test_multi_loops():
 
 
 def do_tell(actor, loop):
-    asyncio.run_coroutine_threadsafe(actor.tell(actor, TestMessage("Hi There")), loop=loop)
+    asyncio.run_coroutine_threadsafe(
+        actor.tell(actor, TestMessage("Hi There")), loop=loop)
 
 
 def test_single_actor_with_new_loop():
     pass
 
 
-def test_multi_loop_thread_at_load():
+def test_multi_loop_threadd_at_load():
     pass
 
     
