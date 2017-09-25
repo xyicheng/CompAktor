@@ -7,6 +7,44 @@ Created on Sep 19, 2017
 '''
 
 
+import pytest
+from compaktor.actor.actor import BaseActor
+from compaktor.actor.message import Message
+from compaktor.flow.streaming import Source, Sink
+
+
+class TestMessage(Message):
+    pass
+
+
+class TestSource(Source):
+    
+    def __init__(self, *args, **kwargs):
+        skwargs = kwargs
+        if skwargs:
+            skwargs = {'pull_function' : self.do_pull}
+        else:
+            skwargs["pull_function"] = self.do_pull
+
+        super().__init__(args, kwargs)
+        self.register_handler(TestMessage, self.do_pull)
+
+    def do_pull(self):
+        pass
+
+
+class TestSink(Sink):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+
+@pytest.fixture(scope="module")
+def flow_tuple():
+    source  = T
+    Flow()
+    return ()
+
 def test_stream_intantiation():
     """
     Test stream instantiation. 
