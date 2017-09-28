@@ -7,20 +7,17 @@ Created on Sep 24, 2017
 '''
 
 
-class Edge:
-
-    def __init__(self, name, actor, edges, accountant, loop):
-        self.name = name
-        self.actor = actor
-        self.edges = edges
-        self.accountant = accountant
-        self.loop = loop
+from compaktor.streams.structures.edge_manager import Manager
+from compaktor.streams.objects.edge import Edge
 
 
-class GraphBuilder:
+class GraphManager:
+    """
+    Manage the graph edges
+    """
 
     def __init__(self):
-        edges = {}
+        self.__manager = Manager()
 
     def connect_source(self, name, source, edges, accountant):
         pass
