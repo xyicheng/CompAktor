@@ -41,6 +41,10 @@ class Source(BaseStage):
         self.__accountants=accountants
         self.register_handler(Pull, self.__handle_pull)
         self.register_handler(Subscribe, self.__subscribe)
+        self.register_handler(DeSubscribes, self.__desubscribe)
+
+    def get_publisher(self):
+        return self.__publisher
 
     async def __handle_pull(self, message):
         """

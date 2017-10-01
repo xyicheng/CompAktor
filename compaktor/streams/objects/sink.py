@@ -59,6 +59,7 @@ class Sink(AbstractActor):
         self.__register_handler(FlowResult, self.__handle_push)
         self.__register_handler(PoisonPill, self._stop_message_handler)
         self.__register_handler(Subscribe, self.__subscribe)
+        self.__register_handler(DeSubscribe, self.__desubscribe)
         self.__register_handler(SetAccountant, self.__set_accountant)
 
     async def __handle_push(self, message):

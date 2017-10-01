@@ -8,9 +8,10 @@ Created on Sep 21, 2017
 
 from compaktor.actor.base_actor import AbstractActor
 from compaktor.message.message_objects import PoisonPill, QueryMessage, Pull,\
-    Publish
+    Publish, Subscribe, DeSubscribe
 from compaktor.errors.actor_errors import HandlerNotFoundError
 from compaktor.actor.pub_sub import PubSub
+from compaktor.actor.abstract_actor import AbstractActor
 
 
 class BaseStage(AbstractActor):
@@ -38,6 +39,22 @@ class BaseStage(AbstractActor):
                     maxsize=mailbox_size, loop=loop
                 )
         self.__publisher = pub
+        self.register_handler(Subscribe, self.__subscribe)
+        self.register_handler(DeSubscribe, self.__desubscribe)
+        self.register_handler(Publish, self.publish)
+
+    def get_publisher(self):
+        return self.__publisher
+
+    async def __subscribe(self, message):
+        payload = message.payload
+        if isinstance(payload, AbstractActor):
+            await self.__publisher.tell(self.__publisher, Subscribe(payload))
+
+    async def __desubscribe(self, message):
+        payload = message.payload
+        if isinstance(payload, AbstractActor):
+            await self.__publisher.tell(self.__publisher, DeSubscribe(payload))
 
     async def publish(self, message):
         await self.__publisher.tell(self.__publisher, Publish(message))
