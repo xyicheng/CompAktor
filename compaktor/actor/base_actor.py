@@ -41,15 +41,15 @@ class BaseActor(AbstractActor):
         :param inbox: The inbox queue
         :type inbox: asyncio.Queue()
         """
-        if self.name is None:
+        if name is None:
             str(NameCreationUtils.get_name_base())
         self.__address = address
-        super().__init__(self.name, loop, address)
+        super().__init__(name, loop, address)
         self.__max_inbox_size = mailbox_size
         self.__inbox = inbox
         if self.__inbox is None:
             self.__inbox = asyncio.Queue(
-                maxsize=self._max_inbox_size, loop=self.loop)
+                maxsize=self.__max_inbox_size, loop=self.loop)
         self._handlers = {}
         self.register_handler(PoisonPill, self._stop_message_handler)
 
