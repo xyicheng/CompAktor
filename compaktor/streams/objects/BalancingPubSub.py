@@ -37,7 +37,7 @@ class BalancingPubSub(PubSub):
         :type inbox: asyncio.Queue()
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self.providers = provider_q
+        self.provider_q = provider_q
         self.subscribers = []
         self.__current_provider = 0
         self.register_handler(Publish, self.push)
@@ -60,6 +60,7 @@ class BalancingPubSub(PubSub):
             result = self.on_pull(message)
             msg = Publish(result, self)
             await self.push(msg)
+            self.provider_q.put(msg)
         except Exception as e:
             self.handle_fail()
 
