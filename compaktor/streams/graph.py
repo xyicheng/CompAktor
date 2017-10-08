@@ -7,7 +7,7 @@ Created on Sep 24, 2017
 '''
 
 
-from compaktor.streams.managers.edge_manager import EdgeManager
+from compaktor.streams.managers.edge_manager import EdgeManager, Edge
 from compaktor.streams.objects.accountant import AccountantActor
 from compaktor.streams.managers.source_manager import SourceManager
 from compaktor.streams.objects.source import Source
@@ -43,6 +43,34 @@ class GraphManager:
             raise ValueError("Source is Already in the Manager")
         self.__source_manager.add_source(name, source)
         self.__edge_manager.add_edge_from_actor(name, source, edges)
+        return self
+
+    def add_node(self, start_name, actora, end_name=None):
+        """
+        Connect the edges of our graph.
+
+        :param start_name: The start name for the graph
+        :type start_name: str()
+        :param actora: BaseActor()
+        :type actora: BaseActor()
+        :param end_name: The end name for the graph
+        :type end_name: str()
+        """
+        keys = self.__edge_manager.keys()
+        if start_name not in keys:
+            err_msg = "Node {} Does Not Exist in Edge Connection".format(start_name)
+            raise GraphEdgeDoesNotExist(err_msg)
+        edgea = Edge(actora, [])
+        edgeb = self.__edge_manager[end_name]
+        actorb = edgeb.actor
+        if end_name not in edgea.edges:
+            edgea.edges.append(end_name)
+            if isinstance(actora, BaseStage) or isinstance(actora, Source):
+                asyncio.run_coroutine_threadsafe(actorb.tell(actora, Subscribe(actora)))
+
+        if start_name not in edgeb.edges:
+            edgeb.append(start_name)
+        return self
 
     def connect_edge(self, start_name, end_name):
         """
@@ -53,7 +81,7 @@ class GraphManager:
         :param end_name: The name of the ending edge
         :type end_name: str()
         """
-        keys = self.__source_manager.keys()
+        keys = self.__edge_manager.keys()
         if start_name not in keys:
             err_msg = "Node {} Does Not Exist in Edge Connection".format(start_name)
             raise GraphEdgeDoesNotExist(err_msg)
@@ -72,6 +100,7 @@ class GraphManager:
 
         if start_name not in edgeb.edges:
             edgeb.append(start_name)
+        return self
 
     def remove_edge(self, start_name, end_name):
         """
@@ -101,6 +130,7 @@ class GraphManager:
             edgeb.append(start_name)
             if isinstance(actora, BaseStage) or isinstance(actora, Source):
                 asyncio.run_coroutine_threadsafe(actora.tell(actorb, DeSubscribe(actorb)))
+        return self
 
     def close_graph(self, wait_time=10):
         """
@@ -128,3 +158,4 @@ class GraphManager:
         # force stop the tick actors
         for tick_actor in tick_actors:
             asyncio.run_coroutine_threadsafe(tick_actor.stop())
+        return self
