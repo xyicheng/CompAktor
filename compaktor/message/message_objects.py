@@ -168,3 +168,27 @@ class SplitPull(Message):
     def __str__(self, *args, **kwargs):
         return "Message({}, {}, {})".format(self.payload, self.sender,
                                             self.split_name)
+
+class SplitDeSubscribe(Message):
+
+    def __init__(self, split_name, payload, sender=None):
+        """
+        Constructor
+
+        :param split_name: The name of the pubsub split
+        :type split_name: str()
+        :param payload: The message to send containing the actor
+        :type payload: AbstractActor()
+        :param sender: The sender
+        :type sender: AbstractActor()
+        """
+        super().__init__(payload, sender)
+        self.split_name = split_name
+
+    def __repr__(self):
+        return "Message({}, {}, {})".format(self.payload, self.sender,
+                                            self.split_name)
+
+    def __str__(self, *args, **kwargs):
+        return "Message({}, {}, {})".format(self.payload, self.sender,
+                                            self.split_name)

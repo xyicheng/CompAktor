@@ -10,7 +10,7 @@ import logging
 from janus import Queue as SafeQ
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Demand, Publish, Pull,\
-    SplitSubscribe, SplitPublish, SplitPull
+    SplitSubscribe, SplitDeSubscribe, SplitPublish, SplitPull
 from compaktor.actor.abstract_actor import AbstractActor
 
 
@@ -45,12 +45,17 @@ class SplitPubSub(PubSub):
         self.indices = {}
         self.__current_provider = 0
         self.__demand_logic = demand_logic
-        self.register_handler(SplitPublish, self.push)
-        self.register_handler(SplitPull, self.pull)
+        self.register_handler(SplitPublish, self.__push)
+        self.register_handler(SplitPull, self.__pull)
+        self.register_handler(SplitSubscribe, self.__subscribe_upstream)
+        self.register_handler(SplitDeSubscribe, self.__desubscribe_upstream)
 
-    async def subscribe_upstream(self, message):
+    async def __subscribe_upstream(self, message):
         """
         Subscribes to an the upstream publisher
+
+        :param message: SplitSubscribe message
+        :type message: SplitSubscribe()
         """
         if isinstance(message, SplitSubscribe):
             try:
@@ -64,7 +69,37 @@ class SplitPubSub(PubSub):
             except Exception as e:
                 self.handle_fail()
 
-    async def pull(self, message):
+    async def __desubscribe_upstream(self, message):
+        """
+        De-subscribe from an upstream publisher.
+
+        :param message: SplitDeSubscribe message
+        :type message: SplitDeSubscribe()
+        """
+        if isinstance(message, SplitDeSubscribe):
+            try:
+                payload = message.payload
+                if isinstance(payload, AbstractActor):
+                    split_name = message.split_name
+                    if split_name in self.subscribers.keys():
+                        current_index = self.indices[split_name]
+                        subs = self.subscribers[split_name]
+                        if payload in subs:
+                            subs.remove(payload)
+                else:
+                    err_msg = "Payload for De-Subscribe must be derived"
+                    err_msg += "from AbtractActor in SplitPubSub."
+                    logging.error(err_msg)
+            except Exception as e:
+                self.handle_fail()
+
+    async def __pull(self, message):
+        """
+        Do not overwrite.  The pull handler.
+
+        :param message: The Pull message
+        :type message: Pull()
+        """
         try:
             if isinstance(message, SplitPull):
                 split_name = message.split_name()
@@ -95,10 +130,24 @@ class SplitPubSub(PubSub):
             self.handle_fail()
 
     def on_pull(self, message):
+        """
+        User implemented on_pull function.
+
+        :param message: The original Pull Message
+        :type message: Pull()
+        """
         logging.error("Should Override Push Function")
         return None
 
-    async def push(self, message, split_name):
+    async def __push(self, message, split_name):
+        """
+        Do not overwrite.  The push handler.
+
+        :param message: The Push message
+        :type message: Push()
+        :param split_name: The logic split name
+        :type split_name: str()
+        """
         if split_name in self.subscribers.keys():
             subs = self.subscribers[split_name]
             if len(subs) > 0:
