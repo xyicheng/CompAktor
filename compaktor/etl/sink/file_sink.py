@@ -23,6 +23,8 @@ class FileSink(Sink):
         self.file = None
         self.__fname = fname
         self.__fdir = fdir
+        self.__max_part_size = max_part_size
+        self.__current_part_size = 0
 
     def write_func(self, message):
         if isinstance(message, Publish) is False:

@@ -8,10 +8,9 @@ Created on Sep 21, 2017
 import asyncio
 import os
 from queue import Queue
-from compaktor.streams.objects.source import Source
+from compaktor.streams.objects import Source
 from compaktor.io.file import File
 from compaktor.actor.pub_sub import PubSub
-from compaktor.io.file_stream import Stream
 
 
 class FileSource(Source):
