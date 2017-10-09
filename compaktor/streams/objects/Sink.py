@@ -37,7 +37,7 @@ class Sink(PubSub):
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.register_handler(Publish, self.__push)
 
-    def __push(self, message):
+    async def __push(self, message):
         """
         Standard push function.
 
@@ -45,7 +45,10 @@ class Sink(PubSub):
         :type message: Message()
         """
         try:
-            self.on_push(message)
+            if isinstance(message, Publish):
+                sender = message.sender
+                self.on_push(message)
+                await self.tell(sender, Pull(None, self))
         except Exception as e:
             self.handle_fail()
 
