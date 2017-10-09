@@ -10,7 +10,7 @@ import logging
 from queue import Queue as PyQueue
 from janus import Queue as SafeQ
 from compaktor.actor.pub_sub import PubSub
-from compaktor.message.message_objects import Demand, Publish, Pull,\
+from compaktor.message.message_objects import Publish, Pull,\
                                                 DeSubscribe, Subscribe
 from compaktor.actor.abstract_actor import AbstractActor
 

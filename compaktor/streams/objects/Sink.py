@@ -18,7 +18,7 @@ class Sink(PubSub):
     on_push.
     """
 
-    def __init__(self, name, loop=asyncio.get_event_loop(), address=None,
+    def __init__(self, name, providers=[], loop=asyncio.get_event_loop(), address=None,
                  mailbox_size=1000, inbox=None):
         """
         Sink Constructor.
@@ -36,6 +36,13 @@ class Sink(PubSub):
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.register_handler(Publish, self.__push)
+        self.__providers = providers
+        if self.__providers is None or len(self.__providers) is 0:
+            raise ValueError("Providers Cannot Initially be None or Empty")
+
+    def start_sink(self):
+        for provider in self.__providers:
+            asyncio.run_coroutine_threadsafe(self.tell(provider, Pull(None, self)))
 
     async def __push(self, message):
         """
