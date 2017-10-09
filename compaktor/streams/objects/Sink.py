@@ -35,9 +35,9 @@ class Sink(PubSub):
         :type inbox: Queue()
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self.register_handler(Publish, self.push)
+        self.register_handler(Publish, self.__push)
 
-    def push(self, message):
+    def __push(self, message):
         """
         Standard push function.
 

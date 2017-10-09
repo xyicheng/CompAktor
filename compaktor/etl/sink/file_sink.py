@@ -68,7 +68,13 @@ class FileSink(Sink):
             self.__dir_parts = self.__fdir.split(os.path.sep)
 
     def __open_stream(self):
+        """
+        Open a new stream.
+        """
         try:
+            if self.__fopen and self.__fopen.is_open:
+                self.__fopen.close()
+
             split_fparts = [x for x in self.__dir_parts]
             ufname = "{}_part{}".format(
                 self.__fname, self.__current_part)
@@ -94,7 +100,7 @@ class FileSink(Sink):
         except Exception as e:
             self.handle_fail()
 
-    def write_func(self, message):
+    def on_push(self, message):
         """
         The file write function.
 
