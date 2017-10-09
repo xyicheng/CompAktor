@@ -8,34 +8,27 @@ Created on Oct 7, 2017
 import asyncio
 import logging
 from queue import Queue as PyQueue
-from janus import Queue as SafeQ
 from compaktor.actor.pub_sub import PubSub
-from compaktor.message.message_objects import Demand, Publish, Pull,\
+from compaktor.message.message_objects import Publish, Pull,\
                                                 DeSubscribe, Subscribe
 from compaktor.actor.abstract_actor import AbstractActor
 
 
-class BalancingPubSub(PubSub):
+class NodePubSub(PubSub):
     """
-    A balancing pubsub uses the provider_q to push results.
-    The balancing pubsub uses a single queue for providers.  The user
-    must ensure that this queue is the inbox for every provider.  Do 
-    not use with too many providers.
-
-    The user also implements the on_pull function to perform actions on pull.
+    A standard graph stage pub sub.  This pub sub receives pull requests which
+    wait on a push to then complete a task and send back to the sender.
+    Non-blocking io should assure maximal concurrency.
     """
 
-    def __init__(self, name, providers, push_q=SafeQ().async_q,
-                 loop=asyncio.get_event_loop(), address=None,
-                 mailbox_size=1000, inbox=SafeQ().async_q,
-                 empty_demand_logic="broadcast"):
+    def __init__(self, name, providers, loop=asyncio.get_event_loop(),
+                 address=None, mailbox_size=1000, inbox=None,
+                 empty_demand_logic = "broadcast"):
         """
         Constructor
 
         :param name: Name of the actor
         :type name: str()
-        :param push_q: Queue for the provider
-        :type push_q: janus.Queue()
         :param loop: Asyncio loop for the actor
         :type loop: AbstractEventLoop()
         :param address: Address for the actor
@@ -46,18 +39,18 @@ class BalancingPubSub(PubSub):
         :type inbox: asyncio.Queue()
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self.push_q = push_q
-        self.__subscribers = []
+        self.subscribers = []
         self.__providers = providers
-        if self.__providers is None or len(self.__providers) is 0:
-            raise ValueError("InitialProviders Must Exist")
         self.__current_provider = 0
+        if self.__providers is None or len(self.__providers) is 0:
+            raise ValueError("Initial providers must be supplied")
         self.register_handler(Publish, self.__pull)
         self.register_handler(Pull, self.__push) 
         self.register_handler(DeSubscribe, self.__de_subscribe_upstream)
         self.register_handler(Subscribe, self.__subscribe_upstream)
         self.__task_q = PyQueue()
-        self.__empty_demand_logic = empty_demand_logic
+        self.__empty_logic = empty_demand_logic
+        self.run_on_empty()
 
     def run_on_empty(self):
         if self.__empty_logic == "broadcast":
@@ -70,7 +63,6 @@ class BalancingPubSub(PubSub):
                 prov = self.__providers[self.__current_provider]
                 asyncio.run_coroutine_threadsafe(self.tell(prov, Pull(None, self)))
                 self.__current_provider += 1
-        
 
     async def __subscribe_upstream(self, message):
         """
@@ -81,8 +73,8 @@ class BalancingPubSub(PubSub):
         """
         payload = message.payload
         if isinstance(payload, AbstractActor):
-            if payload not in self.__subscribers:
-                self.__subscribers.append(payload)
+            if payload not in self.subscribers:
+                self.subscribers.append(payload)
         else:
             msg = "Can Only Subscribe Object of Abstract Actor to StreamPubSub"
             logging.error(msg)
@@ -98,9 +90,9 @@ class BalancingPubSub(PubSub):
             if isinstance(message, DeSubscribe):
                 actor = message.payload
                 if isinstance(actor, AbstractActor):
-                    if actor in self.__subscribers:
-                        self.__subscribers.remove(actor)
-                        if self.__current_provider >= len(self.__subscribers):
+                    if actor in self.subscribers:
+                        self.subscribers.remove(actor)
+                        if self.__current_provider >= len(self.subscribers):
                             self.__current_provider = 0
         except Exception as e:
             self.handle_fail()
@@ -121,7 +113,7 @@ class BalancingPubSub(PubSub):
                     sender = message.sender
                     result = self.on_pull(task)
                     msg = Publish(result, self)
-                    self.push_q.put(msg)
+                    self.provider_q.put(msg)
                     await self.tell(sender, Pull(None, self))
         except Exception as e:
             self.handle_fail()
