@@ -23,7 +23,7 @@ class NodePubSub(PubSub):
 
     def __init__(self, name, providers, loop=asyncio.get_event_loop(),
                  address=None, mailbox_size=1000, inbox=None,
-                 empty_demand_logic = "broadcast"):
+                 empty_demand_logic = "broadcast"()):
         """
         Constructor
 
@@ -50,6 +50,7 @@ class NodePubSub(PubSub):
         self.register_handler(Subscribe, self.__subscribe_upstream)
         self.__task_q = PyQueue()
         self.__empty_logic = empty_demand_logic
+        self.__iter_out = []
         self.run_on_empty()
 
     def run_on_empty(self):
@@ -111,7 +112,17 @@ class NodePubSub(PubSub):
                 task = self.__task_q.get()
                 if task:
                     sender = message.sender
-                    result = self.on_pull(task)
+                    result = None
+                    if self.__iter_out and len(self.__iter_out) > 0:
+                        result = self.__iter_out.pop(0)
+                    else:
+                        result = self.on_pull(task)
+                        if result and isinstance(result, list):
+                            self.__iter_out = result
+                            if len(result) > 0:
+                                result = self.__iter_out.pop(0)
+                            else:
+                                result = None
                     msg = Publish(result, self)
                     self.provider_q.put(msg)
                     await self.tell(sender, Pull(None, self))

@@ -58,6 +58,7 @@ class BalancingPubSub(PubSub):
         self.register_handler(Subscribe, self.__subscribe_upstream)
         self.__task_q = PyQueue()
         self.__empty_demand_logic = empty_demand_logic
+        self.__iter_out = []
 
     def run_on_empty(self):
         if self.__empty_logic == "broadcast":
@@ -119,7 +120,16 @@ class BalancingPubSub(PubSub):
                 task = self.__task_q.get()
                 if task:
                     sender = message.sender
-                    result = self.on_pull(task)
+                    result = None
+                    if self.__iter_out and len(self.__iter_out) > 0:
+                        result = self.__iter_out.pop(0)
+                    else:
+                        result = self.on_pull(task)
+                        if result and isinstance(result, list):
+                            self.__iter_out = result
+                            result = self.__iter_out.pop(0)
+                        else:
+                            result = None
                     msg = Publish(result, self)
                     self.push_q.put(msg)
                     await self.tell(sender, Pull(None, self))
