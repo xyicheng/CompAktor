@@ -80,7 +80,6 @@ class BalancingPubSub(PubSub):
                 prov = self.__providers[self.__current_provider]
                 asyncio.run_coroutine_threadsafe(self.tell(prov, Pull(None, self)))
                 self.__current_provider += 1
-        
 
     async def __subscribe_upstream(self, message):
         """

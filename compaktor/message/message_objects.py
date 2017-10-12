@@ -33,6 +33,10 @@ class Message(object):
             return "Message()"
 
 
+class TaskMessage(Message):
+    pass
+
+
 class QueryMessage(Message):
     """
     A query message with a global result var
