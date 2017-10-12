@@ -11,6 +11,7 @@ from multiprocessing import cpu_count
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Pull, Subscribe, DeSubscribe,\
     FlowResult, Publish
+from abc import abstractmethod
 
 
 class Source(PubSub):
@@ -94,6 +95,7 @@ class Source(PubSub):
         except Exception as e:
             self.handle_fail()
 
+    @abstractmethod
     def on_pull(self):
         """
         Implemented by user.  Handles the pull functionality.
@@ -102,6 +104,7 @@ class Source(PubSub):
         logging.error(err_msg)
         return None
 
+    @abstractmethod
     def on_complete(self):
         """
         Handle closure of the stages. Submit poison pills.

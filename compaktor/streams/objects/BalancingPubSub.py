@@ -13,6 +13,7 @@ from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Publish, Pull,\
                                                 DeSubscribe, Subscribe
 from compaktor.actor.abstract_actor import AbstractActor
+from abc import abstractmethod
 
 
 class BalancingPubSub(PubSub):
@@ -136,6 +137,7 @@ class BalancingPubSub(PubSub):
         except Exception as e:
             self.handle_fail()
 
+    @abstractmethod
     def on_pull(self, message):
         """
         User implemented function to handle incoming methods.

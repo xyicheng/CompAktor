@@ -9,6 +9,7 @@ import asyncio
 import logging
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Pull, Publish
+from abc import abstractmethod
 
 
 class Sink(PubSub):
@@ -59,6 +60,7 @@ class Sink(PubSub):
         except Exception as e:
             self.handle_fail()
 
+    @abstractmethod
     def on_push(self, message):
         """
         Custom push function
@@ -69,6 +71,7 @@ class Sink(PubSub):
         err_msg = "Source Pull Function Not Implemented"
         logging.error(err_msg)
 
+    @abstractmethod
     def on_complete(self):
         """
         Handle closure of the stages. Submit poison pills.

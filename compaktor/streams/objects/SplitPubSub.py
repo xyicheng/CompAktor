@@ -12,6 +12,7 @@ from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Demand, Publish, Pull,\
     SplitSubscribe, SplitDeSubscribe, SplitPublish, SplitPull
 from compaktor.actor.abstract_actor import AbstractActor
+from abc import abstractmethod
 
 
 class SplitPubSub(PubSub):
@@ -129,6 +130,7 @@ class SplitPubSub(PubSub):
         except Exception as e:
             self.handle_fail()
 
+    @abstractmethod
     def on_pull(self, message):
         """
         User implemented on_pull function.
