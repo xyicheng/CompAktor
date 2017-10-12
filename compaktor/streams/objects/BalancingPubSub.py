@@ -7,6 +7,7 @@ Created on Oct 7, 2017
 
 import asyncio
 import logging
+from multiprocessing import cpu_count
 from queue import Queue as PyQueue
 from janus import Queue as SafeQ
 from compaktor.actor.pub_sub import PubSub
@@ -29,7 +30,8 @@ class BalancingPubSub(PubSub):
     def __init__(self, name, providers, push_q=SafeQ().async_q,
                  loop=asyncio.get_event_loop(), address=None,
                  mailbox_size=1000, inbox=SafeQ().async_q,
-                 empty_demand_logic="broadcast"):
+                 empty_demand_logic="broadcast", concurrency=cpu_count(),
+                 routing_logic="round_robin"):
         """
         Constructor
 
@@ -45,6 +47,10 @@ class BalancingPubSub(PubSub):
         :type mailbox_size: int)
         :param inbox: Actor inbox
         :type inbox: asyncio.Queue()
+        :param concurrency: The max concurrency in the system
+        :type concurrency: int()
+        :param routing_logic: round_robin or broadcast
+        :param routing_logic: str()
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.push_q = push_q
@@ -60,6 +66,8 @@ class BalancingPubSub(PubSub):
         self.__task_q = PyQueue()
         self.__empty_demand_logic = empty_demand_logic
         self.__iter_out = []
+        self.__concurrency = concurrency
+        self.__routing_logic = routing_logic
 
     def run_on_empty(self):
         if self.__empty_logic == "broadcast":

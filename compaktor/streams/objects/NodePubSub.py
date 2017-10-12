@@ -7,6 +7,7 @@ Created on Oct 7, 2017
 
 import asyncio
 import logging
+from multiprocessing import cpu_count
 from queue import Queue as PyQueue
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Publish, Pull,\

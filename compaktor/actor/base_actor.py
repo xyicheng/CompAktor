@@ -6,17 +6,11 @@ Created on Aug 18, 2017
 @author: aevans
 '''
 
-
 import asyncio
-from enum import Enum
 import logging
-import time
-import traceback
-from atomos.atomic import AtomicLong
 from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.errors.actor_errors import HandlerNotFoundError
-from compaktor.message.message_objects import Message, QueryMessage, PoisonPill
-from compaktor.state.actor_state import ActorState
+from compaktor.message.message_objects import QueryMessage, PoisonPill
 from compaktor.utils.name_utils import NameCreationUtils 
 
 
@@ -110,7 +104,7 @@ class BaseActor(AbstractActor):
 
     async def _receive(self, message):
         """
-        Receive functin for handling inbound messages
+        Receive function for handling inbound messages
         The message may be of type Message or QueryMessage
 
         :param message:  The message to enqueue
