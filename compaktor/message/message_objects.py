@@ -37,6 +37,10 @@ class TaskMessage(Message):
     pass
 
 
+class PullTick(Message):
+    pass
+
+
 class QueryMessage(Message):
     """
     A query message with a global result var

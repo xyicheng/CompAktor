@@ -6,10 +6,10 @@ Created on Oct 12, 2017
 
 import asyncio
 from compaktor.actor.base_actor import BaseActor
-from compaktor.message.message_objects import Message
+from compaktor.message.message_objects import Message, TaskMessage
 
 
-class Actor(BaseActor):
+class TaskActor(BaseActor):
     """
     Actor for the Stage Tasks.  Expects the user to supply an on_call
     function.
@@ -34,7 +34,7 @@ class Actor(BaseActor):
         :type inbox: Queue()
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self.register_handler(Message, self.__call_back)
+        self.register_handler(TaskMessage, self.__call_back)
         self.__on_call = on_call
 
     async def __call_back(self, message):
@@ -52,6 +52,6 @@ class Actor(BaseActor):
                 if sender is None:
                     raise ValueError("Sender is None")
                 result = await self.__on_call()
-                await self.tell(sender, result)
+                await self.tell(sender, TaskMessage(result, sender))
         except Exception as e:
             self.handle_fail()

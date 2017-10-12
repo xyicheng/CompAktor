@@ -11,7 +11,7 @@ import os
 import random
 import pickle
 import json
-from compaktor.streams.objects.NodePubSub import NodePubSub
+from compaktor.streams.objects.node_pub_sub import NodePubSub
 
 class CheckpointStage(NodePubSub):
 

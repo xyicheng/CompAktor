@@ -5,7 +5,9 @@ Created on Oct 11, 2017
 
 @author: aevans
 '''
-from compaktor.streams.objects.NodePubSub import NodePubSub
+
+import asyncio
+from compaktor.streams.objects.node_pub_sub import NodePubSub
 
 class DateParserStage(NodePubSub):
 

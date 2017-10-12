@@ -11,8 +11,11 @@ from multiprocessing import cpu_count
 from queue import Queue as PyQueue
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Publish, Pull,\
-                                                DeSubscribe, Subscribe
+                                                DeSubscribe, Subscribe,\
+    TaskMessage
 from compaktor.actor.abstract_actor import AbstractActor
+from compaktor.routing.round_robin import RoundRobinRouter
+from compaktor.streams.objects.stage_task_actor import TaskActor
 
 
 class NodePubSub(PubSub):
@@ -24,7 +27,8 @@ class NodePubSub(PubSub):
 
     def __init__(self, name, providers, loop=asyncio.get_event_loop(),
                  address=None, mailbox_size=1000, inbox=None,
-                 empty_demand_logic = "broadcast"()):
+                 empty_demand_logic = "broadcast", concurrency=cpu_count(),
+                 tick_delay=10):
         """
         Constructor
 
@@ -38,6 +42,10 @@ class NodePubSub(PubSub):
         :type mailbox_size: int)
         :param inbox: Actor inbox
         :type inbox: asyncio.Queue()
+        :param empty_demand_logic: round_robin or broadcast
+        :type empty_demand_logic: str()
+        :param concurrency: Number concurrent tasks to run
+        :type concurrency: int()
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.subscribers = []
@@ -45,26 +53,79 @@ class NodePubSub(PubSub):
         self.__current_provider = 0
         if self.__providers is None or len(self.__providers) is 0:
             raise ValueError("Initial providers must be supplied")
-        self.register_handler(Publish, self.__pull)
-        self.register_handler(Pull, self.__push) 
-        self.register_handler(DeSubscribe, self.__de_subscribe_upstream)
-        self.register_handler(Subscribe, self.__subscribe_upstream)
         self.__task_q = PyQueue()
         self.__empty_logic = empty_demand_logic
-        self.__iter_out = []
-        self.run_on_empty()
+        self.__result_q = PyQueue()
+        self.router = RoundRobinRouter()
+        self.create_router(concurrency)
+        self.set_handlers()
+        self.tick_delay = tick_delay
+        self.run_on_empty(concurrency)
+        self.__pull_tick()
 
-    def run_on_empty(self):
-        if self.__empty_logic == "broadcast":
-            for provider in self.__providers:
-                asyncio.run_coroutine_threadsafe(self.tell(provider, Pull(None, self)))
-        else:
-            if len(self.__providers) > 0:
+    def set_handlers(self):
+        """
+        Set the handlers for the actor
+        """
+        self.register_handler(Publish, self.__pull)
+        self.register_handler(Pull, self.__push)
+        self.register_handler(DeSubscribe, self.__de_subscribe_upstream)
+        self.register_handler(Subscribe, self.__subscribe_upstream)
+        self.register_handler(TaskMessage, self.__append_result)
+
+    def create_router(self, concurrency):
+        """
+        Create the initial router with existing actors.
+
+        :param concurrency: Number of routers to start
+        :type concurrency: int()
+        """
+        for i in range(0, concurrency):
+            try:
+                pyname = __name__
+                router_name = "{}_{}".format(pyname, i)
+                ta = TaskActor(name=router_name, on_call=self.on_pull,
+                               loop=self.loop)
+                ta.start()
+                self.router.add_actor(ta)
+            except Exception as e:
+                self.handle_fail()
+
+    def run_on_empty(self, concurrency):
+        for i in range(0, concurrency):
+            if self.__empty_logic == "broadcast":
+                for provider in self.__providers:
+                    asyncio.run_coroutine_threadsafe(self.tell(provider, Pull(None, self)))
+            else:
+                if len(self.__providers) > 0:
+                    if self.__current_provider >= len(self.__providers):
+                        self.__current_provider = 0
+                    prov = self.__providers[self.__current_provider]
+                    asyncio.run_coroutine_threadsafe(self.tell(prov, Pull(None, self)))
+                    self.__current_provider += 1
+
+    def __do_pull_tick(self):
+        """
+        Do a pull tick
+        """
+        try:
+            if self._task_q.full() is False:
+                sender = self.__providers[self.__current_provider]
+                self.loop.run_until_complete(
+                    self.tell(self,Pull(None, sender)))
+                self.__current_provider += 1
                 if self.__current_provider >= len(self.__providers):
                     self.__current_provider = 0
-                prov = self.__providers[self.__current_provider]
-                asyncio.run_coroutine_threadsafe(self.tell(prov, Pull(None, self)))
-                self.__current_provider += 1
+        except Exception as e:
+            self.handle_fail()
+
+        try:
+            self.loop.call_later(self.tick_delay, self.__do_pull_tick())
+        except Exception as e:
+            self.handle_fail()
+
+    def __pull_tick(self):
+        self.loop.call_later(self.tick_delay, self.__do_pull_tick())
 
     async def __subscribe_upstream(self, message):
         """
@@ -99,6 +160,20 @@ class NodePubSub(PubSub):
         except Exception as e:
             self.handle_fail()
 
+    async def __append_result(self, message):
+        """
+        Append an incoming result to the result queue.
+
+        :param message:  The incoming message
+        :type message:  Message()
+        """
+        try:
+            if isinstance(message, TaskMessage):
+                payload = message.payload
+                self.__result_q.put_nowait(payload)
+        except Exception as e:
+            self.handle_fail()
+
     async def pull(self, message):
         """
         The pull message.
@@ -114,21 +189,32 @@ class NodePubSub(PubSub):
                 if task:
                     sender = message.sender
                     result = None
-                    if self.__iter_out and len(self.__iter_out) > 0:
-                        result = self.__iter_out.pop(0)
-                    else:
-                        result = self.on_pull(task)
-                        if result and isinstance(result, list):
-                            self.__iter_out = result
-                            if len(result) > 0:
-                                result = self.__iter_out.pop(0)
-                            else:
-                                result = None
-                    msg = Publish(result, self)
-                    self.provider_q.put(msg)
-                    await self.tell(sender, Pull(None, self))
+                    if self.__result_q.empty() is False:
+                        try:
+                            result = self.__result_q.get_nowait()
+                        except Exception as e:
+                            pass                        
+                    
+                    if self.__result_q.full() is False:
+                        await self.tell(self.router, TaskMessage(message))
+                        await self.__signal_provider()
+
+                    if result is not None:
+                        sender = message.sender
+                        msg = Publish(result, self)
+                        await self.tell(sender, msg)
         except Exception as e:
             self.handle_fail()
+
+    async def __signal_provider(self):
+        try:
+            prov = self.providers[self.__current_provider]
+            await self.tell(prov, Pull(None, self))
+        except Exception as e:
+            self.handle_fail()
+        self.__current_provider += 1
+        if self.__current_provider >= len(self.__providers):
+            self.__current_provider  = 0
 
     def on_pull(self, message):
         """
