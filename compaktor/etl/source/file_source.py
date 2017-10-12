@@ -8,7 +8,7 @@ Created on Sep 21, 2017
 import asyncio
 import os
 from queue import Queue as PyQueue
-from compaktor.streams.objects import Source
+from compaktor.streams.objects.source import Source
 from compaktor.io.file import File
 from compaktor.actor.pub_sub import PubSub
 
@@ -16,7 +16,7 @@ import asyncio
 import logging
 import os
 import re
-from compaktor.streams.objects import Sink
+from compaktor.streams.objects.sink import Sink
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Publish, Pull
 from compaktor.io.file_stream import OutputStream, InputStream
@@ -74,7 +74,7 @@ class FileSource(Source):
         if isinstance(self.__fdir, str):
             self.__dir_parts = self.__fdir.split(os.path.sep)
         self.__populate_queue()
-            
+
     def __populate_queue(self):
         base_parts = self.__base_dir.split(os.path.sep)
         new_dirs = PyQueue()

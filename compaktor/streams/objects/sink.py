@@ -10,6 +10,7 @@ import logging
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Pull, Publish
 from abc import abstractmethod
+from multiprocessing import cpu_count
 
 
 class Sink(PubSub):
@@ -20,7 +21,7 @@ class Sink(PubSub):
     """
 
     def __init__(self, name, providers=[], loop=asyncio.get_event_loop(), address=None,
-                 mailbox_size=1000, inbox=None):
+                 mailbox_size=1000, inbox=None, concurrency=cpu_count()):
         """
         Sink Constructor.
 
@@ -40,10 +41,34 @@ class Sink(PubSub):
         self.__providers = providers
         if self.__providers is None or len(self.__providers) is 0:
             raise ValueError("Providers Cannot Initially be None or Empty")
+        self.__concurrency = concurrency
 
     def start_sink(self):
         for provider in self.__providers:
             asyncio.run_coroutine_threadsafe(self.tell(provider, Pull(None, self)))
+
+    def __do_pull_tick(self):
+        """
+        Do a pull tick
+        """
+        try:
+            if self._task_q.full() is False:
+                sender = self.__providers[self.__current_provider]
+                self.loop.run_until_complete(
+                    self.tell(self,Pull(None, sender)))
+                self.__current_provider += 1
+                if self.__current_provider >= len(self.__providers):
+                    self.__current_provider = 0
+        except Exception as e:
+            self.handle_fail()
+
+        try:
+            self.loop.call_later(self.tick_delay, self.__do_pull_tick())
+        except Exception as e:
+            self.handle_fail()
+
+    def __pull_tick(self):
+        self.loop.call_later(self.tick_delay, self.__do_pull_tick())
 
     async def __push(self, message):
         """
