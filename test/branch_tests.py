@@ -12,7 +12,7 @@ from compaktor.state.actor_state import ActorState
 from compaktor.actor.base_actor import BaseActor
 
 
-def test_branch_creation(self):
+def test_branch_creation():
     """
     Test branch creation
     """
@@ -31,8 +31,6 @@ def test_branch_creation(self):
     sys.add_actor(b, "test/{}".format(a.get_name()))
     sys.add_actor(d, "test/{}/{}".format(a.get_name(), b.get_name()))
     sys.add_actor(c, "test")
-    sys.print_tree()
-
     sys.close(do_print=False)
     assert(a.get_state() is ActorState.TERMINATED), "Actor was not Terminated"
     assert(b.get_state(), ActorState.TERMINATED), "Actor was not Terminated"
@@ -41,7 +39,7 @@ def test_branch_creation(self):
     print("Finished Testing Branch Creation")
 
 
-def test_branch_removal(self):
+def test_branch_removal():
     """
     Add a basic branch and remove it.
     """
@@ -60,7 +58,6 @@ def test_branch_removal(self):
     sys.add_actor(b, "test/{}".format(a.get_name()))
     sys.add_actor(d, "test/{}/{}".format(a.get_name(), b.get_name()))
     sys.add_actor(c, "test")
-    sys.print_tree()
 
     sys.close(do_print=False)
     assert(a.get_state() is ActorState.TERMINATED), "Actor was not Terminated"
@@ -70,7 +67,7 @@ def test_branch_removal(self):
     print("Finished Testing Branch Creation")
 
 
-def test_stress_add_two_levels(self):
+def test_stress_add_two_levels():
     """
     Test actors added to two levels of the tree.  150000 actors added.
     """
@@ -111,12 +108,12 @@ def test_stress_add_two_levels(self):
     ) is ActorState.TERMINATED]) is len(level_two))
 
 
-def test_stress_line_of_levels(self):
+def test_stress_line_of_levels():
     print("Testing Long Line of Actors")
     sys = ActorSystem("test")
     path = "test"
     actors = []
-    for i in range(1, 10000):
+    for i in range(1, 100):
         actor = BaseActor()
         actor.start()
         sys.add_actor(actor, path)
@@ -129,7 +126,7 @@ def test_stress_line_of_levels(self):
         len(actors))
 
 
-def test_creation(self):
+def test_creation():
     print("Create Router Test")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}

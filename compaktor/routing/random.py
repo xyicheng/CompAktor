@@ -23,6 +23,8 @@ class RandomRouter(BaseActor):
                 actors=[], inbox=None):
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.actor_set = actors
+        if self.actor_set:
+            self.actor_set = list(set(self.actor_set))
         self.register_handler(RouteAsk, self.route_ask)
         self.register_handler(RouteTell, self.route_tell)
         self.register_handler(RouteBroadcast, self.broadcast)
@@ -150,7 +152,8 @@ class RandomRouter(BaseActor):
             sender = message.sender
             if sender is None:
                 sender = self
-            fut = asyncio.run_coroutine_threadsafe(sender.ask(actor, message))
+            fut = asyncio.run_coroutine_threadsafe(
+                sender.ask(actor, message), loop=self.loop)
             res = fut.result(15)
         except Exception as e:
             self.handle_fail()
@@ -177,7 +180,7 @@ class RandomRouter(BaseActor):
     
             for actor in self.actor_set:
                 fut = asyncio.run_coroutine_threadsafe(
-                    sender.tell(actor, message))
+                    sender.tell(actor, message), loop=self.loop)
                 fut.result(15)
         except Exception as e:
             self.handle_fail()

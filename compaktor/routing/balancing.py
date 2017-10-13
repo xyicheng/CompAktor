@@ -24,7 +24,7 @@ class BalancingRouter(BaseActor):
     def __init__(self, name=None, loop=None, address=None, mailbox_size=10000,
                  inbox=None, actors=[]):
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self._queue_base = janus.Queue(maxsize=self.max_inbox_size,
+        self._queue_base = janus.Queue(maxsize=mailbox_size,
                                        loop=self.loop)
         self._queue = self._queue_base.async_q
         self.actor_set = actors

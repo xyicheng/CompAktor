@@ -15,7 +15,7 @@ from compaktor.routing.balancing import BalancingRouter
 from compaktor.actor.base_actor import BaseActor
 
 
-def test_balancing_router_creation(self):
+def test_balancing_router_creation():
     print("Starting Creation Test")
     sys = ActorSystem("test")
     kwargs = {'name': "test_router"}
@@ -28,7 +28,7 @@ def test_balancing_router_creation(self):
     print("Completed Creation Test")
 
 
-def test_balancing_router_actor_addition(self):
+def test_balancing_router_actor_addition():
     print("Starting Actor Addition Test")
     sys = ActorSystem("test")
     kwargs = {'name': "test_router"}
@@ -49,7 +49,7 @@ def test_balancing_router_actor_addition(self):
     print("Actor Addition Test Complete")
 
 
-def test_balancing_router_multiplication(self):
+def test_balancing_router_arithemetic():
     print("Testing multiplication")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
@@ -79,7 +79,7 @@ def test_balancing_router_multiplication(self):
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Done Testing Multiplication")
 
-def test_balancing_at_load(self):
+def test_balancing_at_load():
     print("Load Testing")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
@@ -115,3 +115,7 @@ def test_balancing_at_load(self):
     print("Garbage Collecting")
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Done Load Testing")
+
+
+if __name__ == "__main__":
+    test_balancing_router_multiplication()

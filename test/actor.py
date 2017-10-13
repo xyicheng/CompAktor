@@ -5,7 +5,7 @@ from test.modules.actors import AddTestActor, AddIntMessage, StringMessage,\
 from compaktor.actor.base_actor import BaseActor
 
 
-def test_serialization(self):
+def test_serialization():
     """
     This uses the object message to ensure serialization.
     """
@@ -23,7 +23,7 @@ def test_serialization(self):
     asyncio.get_event_loop().run_until_complete(test())
 
 
-def test_setup(self):
+def test_setup():
     """
     Test actor setup
     """
@@ -37,7 +37,7 @@ def test_setup(self):
     asyncio.get_event_loop().run_until_complete(test())
 
 
-def test_hello(self):
+def test_hello():
     """
     The base actor takes your string and prints it.  Nothing is returned.
     A pass means that nothing faild.
@@ -57,7 +57,7 @@ def test_hello(self):
     asyncio.get_event_loop().run_until_complete(say_hello())
 
 
-def test_add(self):
+def test_add():
     """
     Test addition in the actor system
     """
@@ -72,7 +72,7 @@ def test_add(self):
     asyncio.get_event_loop().run_until_complete(test())
 
 
-def test_load_tell(self):
+def test_load_tell():
     """
     Create many tell tests.  At least a 100000 actors for my laptop.  Our
     actors in this test mimic a real world scenario.  Actors are paired and
@@ -117,7 +117,7 @@ def test_load_tell(self):
     asyncio.get_event_loop().run_until_complete(test())
 
 
-def test_load_ask(self):
+def test_load_ask():
     """
     Create many ask tests.  At least 10000 actors for my laptop.  Our
     actors in this test mimic a real world scenario.  Actors are paired and
@@ -165,11 +165,3 @@ def test_load_ask(self):
         await test_helper()
 
     asyncio.get_event_loop().run_until_complete(test())
-
-    def runTest(self):
-        self.test_add()
-        self.test_hello()
-        self.test_load_ask()
-        self.test_load_tell()
-        self.test_serialization()
-        self.test_setup()

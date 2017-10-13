@@ -11,15 +11,13 @@ import traceback
 from compaktor.utils.name_utils import NameCreationUtils
 from compaktor.state.actor_state import ActorState
 from compaktor.message.message_objects import QueryMessage
+from abc import abstractmethod
 
 
 class AbstractActor(object):
     """
     The basis for all actors is the AbstractActor
     """
-
-    __STATE = ActorState.CREATED
-    __NAME = None
 
     def __init__(self, name=None, loop=None, address=None):
         """
@@ -32,6 +30,7 @@ class AbstractActor(object):
         :param address: Address for the actor
         :type address: str()
         """
+        self.__STATE = ActorState.CREATED
         self.loop = loop
         if self.loop is None:
             self.loop = asyncio.get_event_loop()

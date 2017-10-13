@@ -12,6 +12,7 @@ from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.errors.actor_errors import HandlerNotFoundError
 from compaktor.message.message_objects import QueryMessage, PoisonPill
 from compaktor.utils.name_utils import NameCreationUtils 
+from abc import abstractmethod
 
 
 class BaseActor(AbstractActor):
@@ -67,12 +68,13 @@ class BaseActor(AbstractActor):
         :type func: def
         """
         self._handlers[message_cls] = func
-
+    
+    @abstractmethod    
     async def _task(self):
         """
         The running task.  It is not recommended to override this function.
         """
-        message = await self._inbox.get()
+        message = await self.__inbox.get()
         try:
             handler = self._handlers[type(message)]
             is_query = isinstance(message, QueryMessage)
@@ -110,7 +112,7 @@ class BaseActor(AbstractActor):
         :param message:  The message to enqueue
         :type message:  Message()
         """
-        await self._inbox.put(message)
+        await self.__inbox.put(message)
 
     async def _stop_message_handler(self, message):
         '''The stop message is only to ensure that the queue has at least one
@@ -129,7 +131,7 @@ class BaseActor(AbstractActor):
 
         """
         return "Actor(name = {}, handlers = {}, status = {})".format(
-            self.__NAME, str(self._handlers), self.get_state())
+            self.name, str(self._handlers), self.get_state())
 
     def __repr__(self, *args, **kwargs):
         """

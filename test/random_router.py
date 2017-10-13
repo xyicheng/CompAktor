@@ -14,7 +14,7 @@ from compaktor.routing.random import RandomRouter
 from compaktor.actor.base_actor import BaseActor
 
 
-def test_random_router_creation(self):
+def test_random_router_creation():
     print("Create Router Test")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
@@ -28,7 +28,7 @@ def test_random_router_creation(self):
     print("Completed Router Creation Test")
 
 
-def test__random_router_actor_addition(self):
+def test__random_router_actor_addition():
     print("Starting Actor Addition Test")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
@@ -58,7 +58,7 @@ def test__random_router_actor_addition(self):
     print("Actor Addition Test Complete")
 
 
-def test_random_router_multiplication(self):
+def test_random_router_arithmetic():
     print("Testing multiplication")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
@@ -76,11 +76,15 @@ def test_random_router_multiplication(self):
     rr.add_actor(b)
 
     async def get_random_router_addition():
+        print("Calling")
         res = await rr.route_ask(AddIntMessage(1))
+        assert(res is 2)
         return res
 
-    res = asyncio.get_event_loop().run_until_complete(get_addition())
+    print("Mult")
+    res = asyncio.get_event_loop().run_until_complete(get_random_router_addition())
     assert(res is 2), "Addition Not Completed"
+    print("Done Mult")
 
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
     assert(rr.get_num_actors() is 2), msg
@@ -90,7 +94,7 @@ def test_random_router_multiplication(self):
     print("Done Testing Multiplication")
 
 
-def test_random_router_tell(self):
+def test_random_router_tell():
     print("Starting Tell Test")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
@@ -102,6 +106,7 @@ def test_random_router_tell(self):
     a = StringTestActor()
     a.start()
     rr.add_actor(a)
+    print(rr.actor_set)
 
     b = StringTestActor()
     b.start()
@@ -117,7 +122,7 @@ def test_random_router_tell(self):
     print("Tell Test Complete")
 
 
-def test_random_router_broadcast(self):
+def test_random_router_broadcast():
     print("Testing Broadcast")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
@@ -149,7 +154,7 @@ def test_random_router_broadcast(self):
     print("Finished Testing Broadcast")
 
 
-def test_random_router_at_load(self):
+def test_random_router_at_load():
     print("Load Testing")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
@@ -186,7 +191,7 @@ def test_random_router_at_load(self):
     print("Done Load Testing")
 
 
-def test_random_router_tell_at_load(self):
+def test_random_router_tell_at_load():
     print("Load Testing With Tell")
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
