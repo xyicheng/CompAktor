@@ -4,7 +4,7 @@ Created on Sep 21, 2017
 @author: aevans
 '''
 
-
+import asyncio
 from atomos import atomic
 from compaktor.actor.base_actor import BaseActor
 from compaktor.errors.actor_errors import ActorStateError
@@ -140,9 +140,8 @@ class RoundRobinRouter(BaseActor):
         if message.sender is not None:
             sender = message.sender
         ind = self.current_index.get()
-        fut = asyncio.run_coroutine_threadsafe(
-            sender.ask(self.actor_set[ind], message))
-        res = fut.result(15)
+        await sender.ask(self.actor_set[ind], message)
+        res = await message.result
         self.current_index.get_and_add(1)
         if self.current_index.get() is len(self.actor_set):
             self.current_index.get_and_set(0)
@@ -161,9 +160,8 @@ class RoundRobinRouter(BaseActor):
 
         rfuncs = []
         for actor in self.actor_set:
-            fut = asyncio.test_run_coroutine_threadsafe(
-                sender.tell(actor, message))
-            rfuncs.append(fut)
+            fut = asyncio.run_coroutine_threadsafe(
+                sender.tell(actor, message), self.loop)
 
-        for func in rfuncs:
-            fut.result(15)
+if __name__ == "__main__":
+    test_round_robin_broadcast()

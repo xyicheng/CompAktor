@@ -63,7 +63,7 @@ def test_add():
     """
     async def test():
         a = BaseActor()
-        b = AddTestActor()
+        b = AddTestActor("test")
         a.start()
         b.start()
         message = AddIntMessage(1)
@@ -133,9 +133,9 @@ def test_load_ask():
         string_actors = []
         calling_actors = []
         for i in range(0, num_actors):
-            a = AddTestActor()
+            a = AddTestActor("testa")
             a.start()
-            b = BaseActor()
+            b = BaseActor("testb")
             b.start()
             string_actors.append(a)
             calling_actors.append(b)

@@ -19,7 +19,7 @@ def test_random_router_creation():
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
     args = []
-    rr = RandomRouter(*args, **kwargs)
+    rr = RandomRouter("test_router")
     rr.start()
     assert(rr.get_name() == 'test_router')
     rr.set_actor_system(sys, "tests")
@@ -33,7 +33,7 @@ def test__random_router_actor_addition():
     sys = ActorSystem("tests")
     kwargs = {'name': 'test_router'}
     args = []
-    rr = RandomRouter(*args, **kwargs)
+    rr = RandomRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -61,33 +61,31 @@ def test__random_router_actor_addition():
 def test_random_router_arithmetic():
     print("Testing multiplication")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RandomRouter(*args, **kwargs)
+    rr = RandomRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
-    a = AddTestActor()
+    a = AddTestActor("testa")
     a.start()
     rr.add_actor(a)
 
-    b = AddTestActor()
+    b = AddTestActor("testb")
     b.start()
     rr.add_actor(b)
 
     async def get_random_router_addition():
-        print("Calling")
         res = await rr.route_ask(AddIntMessage(1))
         assert(res is 2)
         return res
 
-    print("Mult")
     res = asyncio.get_event_loop().run_until_complete(get_random_router_addition())
     assert(res is 2), "Addition Not Completed"
-    print("Done Mult")
-
+    asyncio.get_event_loop().run_until_complete(a.stop())
+    asyncio.get_event_loop().run_until_complete(b.stop())
+    asyncio.get_event_loop().run_until_complete(rr.stop())
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
     assert(rr.get_num_actors() is 2), msg
+    
     assert(a.get_state() is ActorState.TERMINATED), "Actor a Not Terminated"
     assert(b.get_state() is ActorState.TERMINATED), " Actor b Not Terminated"
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
@@ -97,9 +95,7 @@ def test_random_router_arithmetic():
 def test_random_router_tell():
     print("Starting Tell Test")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RandomRouter(*args, **kwargs)
+    rr = RandomRouter(name="test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -111,6 +107,7 @@ def test_random_router_tell():
     b = StringTestActor()
     b.start()
     rr.add_actor(b)
+    print(rr.actor_set)
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
     assert(rr.get_num_actors() is 2), msg
     asyncio.get_event_loop().run_until_complete(
@@ -125,9 +122,7 @@ def test_random_router_tell():
 def test_random_router_broadcast():
     print("Testing Broadcast")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RandomRouter(*args, **kwargs)
+    rr = RandomRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -142,7 +137,7 @@ def test_random_router_broadcast():
     asyncio.get_event_loop().run_until_complete(
         rr.broadcast(StringMessage("Hello World!")))
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
-    assert(rr.get_num_actors() is 2), msg
+    assert(rr.get_num_actors() is 3), msg
 
     asyncio.get_event_loop().run_until_complete(
         rr.route_tell(StringMessage("Hello World")))
@@ -157,9 +152,7 @@ def test_random_router_broadcast():
 def test_random_router_at_load():
     print("Load Testing")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RandomRouter(*args, **kwargs)
+    rr = RandomRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -175,7 +168,7 @@ def test_random_router_at_load():
 
     print("Starting Actor")
     for i in range(0, 100):
-        a = AddTestActor()
+        a = AddTestActor("test_actor")
         a.start()
         rr.add_actor(a)
         actors.append(a)
@@ -185,7 +178,7 @@ def test_random_router_at_load():
     print("Waiting")
     res = asyncio.get_event_loop().run_until_complete(get_sum(funcs))
     msg = "Result {} is not {}".format(res, len(funcs))
-    assert(res is len(funcs)), msg
+    assert(int(res) is len(funcs)), msg
     sys.close()
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Done Load Testing")
@@ -194,9 +187,7 @@ def test_random_router_at_load():
 def test_random_router_tell_at_load():
     print("Load Testing With Tell")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RandomRouter(*args, **kwargs)
+    rr = RandomRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -225,3 +216,7 @@ def test_random_router_tell_at_load():
     del gc.garbage[:]
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Load Testing With Tell Complete")
+
+
+if __name__ == "__main__":
+    test_random_router_arithmetic()

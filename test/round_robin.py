@@ -9,12 +9,10 @@ from compaktor.routing.round_robin import RoundRobinRouter
 from compaktor.actor.base_actor import BaseActor
 
 
-def test_round_robin_actor_addition(self):
+def test_round_robin_actor_addition():
     print("Starting Actor Addition Test")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RoundRobinRouter(*args, **kwargs)
+    rr = RoundRobinRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -37,20 +35,18 @@ def test_round_robin_actor_addition(self):
     print("Actor Addition Test Complete")
 
 
-def test_round_robin_multiplication(self):
+def test_round_robin_multiplication():
     print("Testing multiplication")
     a_sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RoundRobinRouter(*args, **kwargs)
+    rr = RoundRobinRouter("test_router")
     rr.start()
     rr.set_actor_system(a_sys, "tests")
 
-    a = AddTestActor()
+    a = AddTestActor("testa")
     a.start()
     rr.add_actor(a)
 
-    b = AddTestActor()
+    b = AddTestActor("testb")
     b.start()
     rr.add_actor(b)
 
@@ -71,12 +67,10 @@ def test_round_robin_multiplication(self):
     print("Done Testing Multiplication")
 
 
-def test_round_robin_tell(self):
+def test_round_robin_tell():
     print("Starting Tell Test")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RoundRobinRouter(*args, **kwargs)
+    rr = RoundRobinRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -99,12 +93,10 @@ def test_round_robin_tell(self):
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Tell Test Complete")
 
-def test_round_robin_broadcast(self):
+def test_round_robin_broadcast():
     print("Testing Broadcast")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RoundRobinRouter(*args, **kwargs)
+    rr = RoundRobinRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -123,18 +115,16 @@ def test_round_robin_broadcast(self):
 
     asyncio.get_event_loop().run_until_complete(
         rr.route_tell(StringMessage("Hello World")))
-
+    sys.close()
     assert(a.get_state() is ActorState.TERMINATED), "Actor a Not Terminated"
     assert(b.get_state() is ActorState.TERMINATED), " Actor b Not Terminated"
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Finished Testing Broadcast")
 
-def test_round_robin_at_load(self):
+def test_round_robin_at_load():
     print("Load Testing")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RoundRobinRouter(*args, **kwargs)
+    rr = RoundRobinRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
@@ -150,7 +140,7 @@ def test_round_robin_at_load(self):
 
     print("Starting Actor")
     for i in range(0, 100):
-        a = AddTestActor()
+        a = AddTestActor("testa")
         a.start()
         rr.add_actor(a)
         actors.append(a)
@@ -160,17 +150,15 @@ def test_round_robin_at_load(self):
     print("Waiting")
     res = asyncio.get_event_loop().run_until_complete(get_sum(funcs))
     print(res)
-    assert(res is len(funcs)), "Result {} is not {}".format(res, len(funcs))
+    assert(int(res) is len(funcs)), "Result {} is not {}".format(res, len(funcs))
     sys.close()
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Done Load Testing")
 
-def test__round_robin_tell_at_load(self):
+def test__round_robin_tell_at_load():
     print("Load Testing With Tell")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = RoundRobinRouter(*args, **kwargs)
+    rr = RoundRobinRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 

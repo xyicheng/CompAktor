@@ -4,7 +4,7 @@ Created on Sep 21, 2017
 @author: aevans
 '''
 
-
+import pdb
 import asyncio
 import random
 from compaktor.actor.base_actor import BaseActor
@@ -152,9 +152,7 @@ class RandomRouter(BaseActor):
             sender = message.sender
             if sender is None:
                 sender = self
-            fut = asyncio.run_coroutine_threadsafe(
-                sender.ask(actor, message), loop=self.loop)
-            res = fut.result(15)
+            res = await sender.ask(actor, message)
         except Exception as e:
             self.handle_fail()
         return res

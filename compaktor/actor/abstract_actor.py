@@ -4,14 +4,12 @@ Created on Sep 22, 2017
 @author: aevans
 '''
 
-
 import asyncio
 import time
 import traceback
 from compaktor.utils.name_utils import NameCreationUtils
 from compaktor.state.actor_state import ActorState
 from compaktor.message.message_objects import QueryMessage
-from abc import abstractmethod
 
 
 class AbstractActor(object):
@@ -167,7 +165,7 @@ class AbstractActor(object):
             assert isinstance(message, QueryMessage)
             if not message.result:
                 message.result = asyncio.Future(loop=self.loop)
-            await self.tell(target, message)
+            asyncio.run_coroutine_threadsafe(self.tell(target, message),self.loop)
             res = await message.result
             return res
         except Exception as e:
@@ -177,4 +175,4 @@ class AbstractActor(object):
         """
         Handle a failure. The default just logs the stack trace.
         """
-        print(traceback.format_exc())
+        traceback.print_exc()

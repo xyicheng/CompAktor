@@ -4,6 +4,7 @@ Created on Oct 12, 2017
 @author: aevans
 '''
 
+import asyncio
 from compaktor.actor.base_actor import BaseActor
 from compaktor.message.message_objects import Message, QueryMessage
 
@@ -47,8 +48,9 @@ class StringTestActor(BaseActor):
 
 class AddTestActor(BaseActor):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, name, loop=asyncio.get_event_loop(),
+                 address=None, mailbox_size=1000, inbox=None):
+        super().__init__(name, loop, address, mailbox_size, inbox)
         self.register_handler(QueryMessage, self.add_test)
         self.register_handler(AddIntMessage, self.add_test)
 

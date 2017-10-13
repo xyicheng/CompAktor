@@ -18,9 +18,7 @@ from compaktor.actor.base_actor import BaseActor
 def test_balancing_router_creation():
     print("Starting Creation Test")
     sys = ActorSystem("test")
-    kwargs = {'name': "test_router"}
-    args = []
-    rr = BalancingRouter(*args, *kwargs)
+    rr = BalancingRouter("test_router")
     rr.start()
     sys.add_actor(rr, "test")
     sys.close()
@@ -31,9 +29,7 @@ def test_balancing_router_creation():
 def test_balancing_router_actor_addition():
     print("Starting Actor Addition Test")
     sys = ActorSystem("test")
-    kwargs = {'name': "test_router"}
-    args = []
-    rr = BalancingRouter(*args, **kwargs)
+    rr = BalancingRouter("test_router")
     rr.start()
     print(rr.get_name())
     a = BaseActor()
@@ -52,20 +48,20 @@ def test_balancing_router_actor_addition():
 def test_balancing_router_arithemetic():
     print("Testing multiplication")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = BalancingRouter(*args, **kwargs)
+    rr = BalancingRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 
-    a = AddTestActor()
+    a = AddTestActor(name="testa")
     a.start()
     rr.add_actor(a)
 
-    b = AddTestActor()
+    b = AddTestActor(name="testb")
+    print(b)
     b.start()
     rr.add_actor(b)
     print(rr)
+    asyncio.get_event_loop().run_until_complete(rr.route_tell(AddIntMessage(1)))
     res = asyncio.get_event_loop().run_until_complete(rr.route_ask(AddIntMessage(1)))
     assert(res is 2), "Addition Not Completed"
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
@@ -78,9 +74,7 @@ def test_balancing_router_arithemetic():
 def test_balancing_at_load():
     print("Load Testing")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
-    rr = BalancingRouter(*args, **kwargs)
+    rr = BalancingRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
 

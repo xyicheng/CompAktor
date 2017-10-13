@@ -6,7 +6,7 @@ Created on Sep 21, 2017
 
 
 import asyncio
-import janus
+from queue import Queue
 from compaktor.actor.base_actor import BaseActor
 from compaktor.errors.actor_errors import ActorStateError
 from compaktor.message.message_objects import RouteAsk,\
@@ -24,18 +24,16 @@ class BalancingRouter(BaseActor):
     def __init__(self, name=None, loop=None, address=None, mailbox_size=10000,
                  inbox=None, actors=[]):
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self._queue_base = janus.Queue(maxsize=mailbox_size,
-                                       loop=self.loop)
-        self._queue = self._queue_base.async_q
+        self._queue = Queue(maxsize=mailbox_size)
+        if inbox is not None:
+            self._queue = inbox
+        self.__router_queue = Queue(maxsize=mailbox_size)
         self.actor_set = actors
         self.register_handler(RouteAsk, self.route_ask)
         self.register_handler(RouteTell, self.route_tell)
         self.register_handler(RouteBroadcast, self.attempt_broadcast)
         self.actor_system = None
         self.sys_path = None
-
-    def close_queue(self):
-        self._queue_base.close()
 
     def get_num_actors(self):
         return len(self.actor_set)
@@ -74,8 +72,8 @@ class BalancingRouter(BaseActor):
             if actor not in self.actor_set:
                 actor._inbox = self._queue
                 self.actor_set.append(actor)
-            actor.__inbox = self._queue
-            print(actor._inbox)
+            actor.__inbox = self.__router_queue
+            print(actor.__inbox)
             if self.sys_path is not None and self.actor_system is not None:
                 self.actor_system.add_actor(actor, self.sys_path)
         except Exception as e:
@@ -123,10 +121,11 @@ class BalancingRouter(BaseActor):
         res = None
         try:
             assert isinstance(message, QueryMessage)
+            print("Inserting message")
             if not message.result:
-                print(message)
                 message.result = asyncio.Future(loop=self.loop)
-            await self._queue.put(message)
+            self._queue.put(message)
+            print("Awaiting Result")
             res = await message.result
             print(res)
         except Exception as e:
@@ -139,7 +138,7 @@ class BalancingRouter(BaseActor):
         should block.
         """
         try:
-            await self._queue.put(message)
+            self._queue.put(message)
         except Exception as e:
             self.handle_fail()
 
