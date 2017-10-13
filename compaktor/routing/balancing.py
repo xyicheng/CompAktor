@@ -74,7 +74,8 @@ class BalancingRouter(BaseActor):
             if actor not in self.actor_set:
                 actor._inbox = self._queue
                 self.actor_set.append(actor)
-    
+            actor.__inbox = self._queue
+            print(actor._inbox)
             if self.sys_path is not None and self.actor_system is not None:
                 self.actor_system.add_actor(actor, self.sys_path)
         except Exception as e:
@@ -123,10 +124,11 @@ class BalancingRouter(BaseActor):
         try:
             assert isinstance(message, QueryMessage)
             if not message.result:
+                print(message)
                 message.result = asyncio.Future(loop=self.loop)
-            print("Putting In Queue")
             await self._queue.put(message)
             res = await message.result
+            print(res)
         except Exception as e:
             self.handle_fail()
         return res

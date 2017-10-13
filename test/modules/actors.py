@@ -49,10 +49,10 @@ class AddTestActor(BaseActor):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.register_handler(Message, self.add_test)
+        self.register_handler(QueryMessage, self.add_test)
         self.register_handler(AddIntMessage, self.add_test)
 
     async def add_test(self, message):
-        print(Message)
+        print("Received")
         return message.payload + 1
 

@@ -65,12 +65,8 @@ def test_balancing_router_arithemetic():
     b = AddTestActor()
     b.start()
     rr.add_actor(b)
-
-    async def get_addition():
-        res = await rr.route_ask(AddIntMessage(1))
-        return res
-
-    res = asyncio.get_event_loop().run_until_complete(get_addition())
+    print(rr)
+    res = asyncio.get_event_loop().run_until_complete(rr.route_ask(AddIntMessage(1)))
     assert(res is 2), "Addition Not Completed"
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
     assert(rr.get_num_actors() is 2), msg
@@ -118,4 +114,4 @@ def test_balancing_at_load():
 
 
 if __name__ == "__main__":
-    test_balancing_router_multiplication()
+    test_balancing_router_arithemetic()
