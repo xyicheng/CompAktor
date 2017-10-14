@@ -74,17 +74,14 @@ class BaseActor(AbstractActor):
         """
         The running task.  It is not recommended to override this function.
         """
-        print("Attempting Get")
         message = await self.__inbox.get()
-        print(message)
-        print("Attempted Get")
+        is_query = isinstance(message, QueryMessage)
         try:
             handler_type = type(message)
             if handler_type not in self._handlers.keys():
                 err_msg = "Handler Does Not Exist for {}".format(handler_type)
                 raise HandlerNotFoundError(err_msg)
             handler = self._handlers[type(message)]
-            is_query = isinstance(message, QueryMessage)
             try:
                 if handler:
                     response = await handler(message)
@@ -99,7 +96,7 @@ class BaseActor(AbstractActor):
                                     '{0}'.format(type(message)))
                     self.handle_fail()
             else:
-                if is_query:
+                if is_query and message.result:
                     message.result.set_result(response)
         except KeyError as ex:
             self.handle_fail()

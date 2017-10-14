@@ -56,5 +56,4 @@ class AddTestActor(BaseActor):
         self.register_handler(AddIntMessage, self.add_test)
 
     async def add_test(self, message):
-        print("Received")
         return message.payload + 1

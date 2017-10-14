@@ -34,6 +34,9 @@ class BalancingRouter(BaseActor):
         self.actor_system = None
         self.sys_path = None
 
+    def close_queue(self):
+        self.__router_queue.close()
+
     def get_router_queue(self):
         return self.__router_queue
 
@@ -119,14 +122,12 @@ class BalancingRouter(BaseActor):
         """
         res = None
         try:
-            assert isinstance(message, QueryMessage)
-            print("Inserting message")
+            assert isinstance(message.payload, QueryMessage)
+            message = message.payload
             if not message.result:
                 message.result = asyncio.Future(loop=self.loop)
-            await self.__router_queue.put(message.payload)
-            print("Awaiting Result")
+            await self.__router_queue.put(message)
             res = await message.result
-            print(res)
         except Exception as e:
             self.handle_fail()
         return res
@@ -137,9 +138,7 @@ class BalancingRouter(BaseActor):
         should block.
         """
         try:
-            print("Telling")
             await self.__router_queue.put(message.payload)
-            print("Done Telling")
         except Exception as e:
             self.handle_fail()
 

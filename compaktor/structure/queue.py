@@ -22,10 +22,12 @@ class BlockingQueue:
         :param max_size: Maximum size of the queue
         :type max_size: int()
         """
+        self.__is_closed = False
         self.__jq = Queue(maxsize=max_size)
         self.__queue = self.__jq.async_q
 
     def close(self):
+        self.__is_closed = True
         self.__jq.close()
 
     async def put(self, item, block=False):
@@ -37,12 +39,11 @@ class BlockingQueue:
         :param block: Whether to block on the queue
         :type block: bool()
         """
-        if self.__queue.full() is False or block:
-            print("Putting Item")
-            await self.__queue.put(item)
-            print("Done Putting")
-        else:
-            logging.warn("Queue Full")
+        if self.__is_closed is False:
+            if self.__queue.full() is False or block:
+                await self.__queue.put(item)
+            else:
+                logging.warn("Queue Full")
 
     async def get(self, block=True):
         """
@@ -53,11 +54,10 @@ class BlockingQueue:
         :return: An item from the queue
         :type: object
         """
-        print("Getting")
         item = None
-        if block or self.__queue.empty() is False:
-            item = await self.__queue.get()
-        else:
-            item = None
-        print("Done Getting")
+        if self.__is_closed is False:
+            if block or self.__queue.empty() is False:
+                item = await self.__queue.get()
+            else:
+                item = None
         return item

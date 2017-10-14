@@ -13,7 +13,7 @@ from compaktor.system.actor_system import ActorSystem
 from compaktor.state.actor_state import ActorState
 from compaktor.routing.balancing import BalancingRouter
 from compaktor.actor.base_actor import BaseActor
-from compaktor.message.message_objects import RouteTell
+from compaktor.message.message_objects import RouteTell, RouteAsk
 
 
 def test_balancing_router_creation():
@@ -60,14 +60,11 @@ def test_balancing_router_arithemetic():
     b = AddTestActor(name="testb", inbox=rr.get_router_queue())
     b.start()
     rr.add_actor(b)
-    rr.loop.run_until_complete(rr.tell(rr, RouteTell(AddIntMessage(1))))
-    print("Waiting")
-    '''
-    res = asyncio.get_event_loop().run_until_complete(rr.route_ask(AddIntMessage(1)))
+    res = asyncio.get_event_loop().run_until_complete(rr.route_ask(RouteAsk(AddIntMessage(1))))
     assert(res is 2), "Addition Not Completed"
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
     assert(rr.get_num_actors() is 2), msg
-    '''
+    rr.close_queue()
     asyncio.get_event_loop().run_until_complete(a.stop())
     asyncio.get_event_loop().run_until_complete(b.stop())
     asyncio.get_event_loop().run_until_complete(rr.stop())
