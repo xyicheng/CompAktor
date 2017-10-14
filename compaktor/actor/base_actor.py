@@ -13,7 +13,6 @@ from compaktor.errors.actor_errors import HandlerNotFoundError
 from compaktor.message.message_objects import QueryMessage, PoisonPill
 from compaktor.utils.name_utils import NameCreationUtils 
 from abc import abstractmethod
-import pdb
 
 
 class BaseActor(AbstractActor):
@@ -77,6 +76,7 @@ class BaseActor(AbstractActor):
         """
         print("Attempting Get")
         message = await self.__inbox.get()
+        print(message)
         print("Attempted Get")
         try:
             handler_type = type(message)
@@ -122,7 +122,8 @@ class BaseActor(AbstractActor):
         await self.__inbox.put(message)
 
     async def _stop_message_handler(self, message):
-        '''The stop message is only to ensure that the queue has at least one
+        '''
+        The stop message is only to ensure that the queue has at least one
         item in it so the call to _inbox.get() doesn't block. We don't actually
         have to do anything with it.
         '''

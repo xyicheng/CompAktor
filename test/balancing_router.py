@@ -58,11 +58,10 @@ def test_balancing_router_arithemetic():
     rr.add_actor(a)
 
     b = AddTestActor(name="testb", inbox=rr.get_router_queue())
-    print(b)
     b.start()
     rr.add_actor(b)
-    print(rr)
     rr.loop.run_until_complete(rr.tell(rr, RouteTell(AddIntMessage(1))))
+    print("Waiting")
     '''
     res = asyncio.get_event_loop().run_until_complete(rr.route_ask(AddIntMessage(1)))
     assert(res is 2), "Addition Not Completed"

@@ -123,7 +123,7 @@ class BalancingRouter(BaseActor):
             print("Inserting message")
             if not message.result:
                 message.result = asyncio.Future(loop=self.loop)
-            await self.__router_queue.put(message)
+            await self.__router_queue.put(message.payload)
             print("Awaiting Result")
             res = await message.result
             print(res)
@@ -138,7 +138,7 @@ class BalancingRouter(BaseActor):
         """
         try:
             print("Telling")
-            await self.__router_queue.put(message)
+            await self.__router_queue.put(message.payload)
             print("Done Telling")
         except Exception as e:
             self.handle_fail()
@@ -151,6 +151,6 @@ class BalancingRouter(BaseActor):
         """
         try:
             for actor in self.actors:
-                self.__queue._put(message)
+                await self.__router_queue._put(message)
         except Exception as e:
             self.handle_fail()
