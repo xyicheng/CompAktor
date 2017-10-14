@@ -52,9 +52,9 @@ class AddTestActor(BaseActor):
                  address=None, mailbox_size=1000, inbox=None):
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.register_handler(QueryMessage, self.add_test)
+        self.register_handler(Message, self.add_test)
         self.register_handler(AddIntMessage, self.add_test)
 
     async def add_test(self, message):
         print("Received")
         return message.payload + 1
-

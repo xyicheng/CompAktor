@@ -13,6 +13,7 @@ from compaktor.system.actor_system import ActorSystem
 from compaktor.state.actor_state import ActorState
 from compaktor.routing.balancing import BalancingRouter
 from compaktor.actor.base_actor import BaseActor
+from compaktor.message.message_objects import RouteTell
 
 
 def test_balancing_router_creation():
@@ -52,24 +53,30 @@ def test_balancing_router_arithemetic():
     rr.start()
     rr.set_actor_system(sys, "tests")
 
-    a = AddTestActor(name="testa")
+    a = AddTestActor(name="testa", inbox=rr.get_router_queue())
     a.start()
     rr.add_actor(a)
 
-    b = AddTestActor(name="testb")
+    b = AddTestActor(name="testb", inbox=rr.get_router_queue())
     print(b)
     b.start()
     rr.add_actor(b)
     print(rr)
-    asyncio.get_event_loop().run_until_complete(rr.route_tell(AddIntMessage(1)))
+    rr.loop.run_until_complete(rr.tell(rr, RouteTell(AddIntMessage(1))))
+    '''
     res = asyncio.get_event_loop().run_until_complete(rr.route_ask(AddIntMessage(1)))
     assert(res is 2), "Addition Not Completed"
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
     assert(rr.get_num_actors() is 2), msg
+    '''
+    asyncio.get_event_loop().run_until_complete(a.stop())
+    asyncio.get_event_loop().run_until_complete(b.stop())
+    asyncio.get_event_loop().run_until_complete(rr.stop())
     assert(a.get_state() is ActorState.TERMINATED), "Actor a Not Terminated"
     assert(b.get_state() is ActorState.TERMINATED), " Actor b Not Terminated"
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Done Testing Multiplication")
+
 
 def test_balancing_at_load():
     print("Load Testing")

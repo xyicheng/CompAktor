@@ -13,6 +13,7 @@ from compaktor.errors.actor_errors import HandlerNotFoundError
 from compaktor.message.message_objects import QueryMessage, PoisonPill
 from compaktor.utils.name_utils import NameCreationUtils 
 from abc import abstractmethod
+import pdb
 
 
 class BaseActor(AbstractActor):
@@ -74,8 +75,14 @@ class BaseActor(AbstractActor):
         """
         The running task.  It is not recommended to override this function.
         """
+        print("Attempting Get")
         message = await self.__inbox.get()
+        print("Attempted Get")
         try:
+            handler_type = type(message)
+            if handler_type not in self._handlers.keys():
+                err_msg = "Handler Does Not Exist for {}".format(handler_type)
+                raise HandlerNotFoundError(err_msg)
             handler = self._handlers[type(message)]
             is_query = isinstance(message, QueryMessage)
             try:

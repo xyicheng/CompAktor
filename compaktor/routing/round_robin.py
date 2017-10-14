@@ -18,11 +18,11 @@ class RoundRobinRouter(BaseActor):
     a set of actors.  Routers do not use handlers.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.name = kwargs.get('name', super().get_name())
-        self.actor_set = kwargs.get('actors', [])
-        self.actor_set = []
+    def __init__(self, name=None, loop=None, address=None, mailbox_size=10000,
+                 inbox=None, actors=[]):
+        super().__init__(name, loop, address, mailbox_size, inbox)
+        self.name = name
+        self.actor_set = actors
         self.current_index = atomic.AtomicInteger()
         self.actor_system = None
         self.sys_path = None
@@ -113,7 +113,8 @@ class RoundRobinRouter(BaseActor):
             ind = self.current_index.get() 
             if self.actor_set and len(self.actor_set) > 0:          
                 fut = asnycio.run_coroutine_threadsafe(
-                    sender.tell(self.actor_set[ind % len(self.actor_set)], message.payload))
+                    sender.tell(self.actor_set[ind % len(self.actor_set)],
+                                message.payload))
                 fut.result(timeout=15)
                 self.current_index.get_and_add(1)
             if self.current_index.get() is len(self.actor_set):
@@ -126,6 +127,7 @@ class RoundRobinRouter(BaseActor):
         The current index for the router.  Useful for debugging.
 
         :return:  The current index
+        :rtype: int()
         """
         return self.current_index.get()
 
@@ -135,6 +137,8 @@ class RoundRobinRouter(BaseActor):
 
         :param message:  The message to send
         :type message:  bytearray
+        :return: The result from the ask function
+        :rtype: object
         """
         sender = self
         if message.sender is not None:
@@ -162,6 +166,3 @@ class RoundRobinRouter(BaseActor):
         for actor in self.actor_set:
             fut = asyncio.run_coroutine_threadsafe(
                 sender.tell(actor, message), self.loop)
-
-if __name__ == "__main__":
-    test_round_robin_broadcast()

@@ -16,11 +16,11 @@ def test_round_robin_actor_addition():
     rr.start()
     rr.set_actor_system(sys, "tests")
 
-    a = BaseActor()
+    a = BaseActor("testa")
     a.start()
     rr.add_actor(a)
 
-    b = BaseActor()
+    b = BaseActor("testb")
     b.start()
     rr.add_actor(b)
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
@@ -35,7 +35,7 @@ def test_round_robin_actor_addition():
     print("Actor Addition Test Complete")
 
 
-def test_round_robin_multiplication():
+def test_round_robin_arithmetic():
     print("Testing multiplication")
     a_sys = ActorSystem("tests")
     rr = RoundRobinRouter("test_router")
@@ -187,3 +187,7 @@ def test__round_robin_tell_at_load():
     del gc.garbage[:]
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Load Testing With Tell Complete")
+
+
+if __name__ == "__main__":
+    test_round_robin_arithmetic()

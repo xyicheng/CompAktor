@@ -4,9 +4,8 @@ Created on Sep 21, 2017
 @author: aevans
 '''
 
-
 import asyncio
-from queue import Queue
+from compaktor.structure.queue import BlockingQueue 
 from compaktor.actor.base_actor import BaseActor
 from compaktor.errors.actor_errors import ActorStateError
 from compaktor.message.message_objects import RouteAsk,\
@@ -24,16 +23,19 @@ class BalancingRouter(BaseActor):
     def __init__(self, name=None, loop=None, address=None, mailbox_size=10000,
                  inbox=None, actors=[]):
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self._queue = Queue(maxsize=mailbox_size)
         if inbox is not None:
-            self._queue = inbox
-        self.__router_queue = Queue(maxsize=mailbox_size)
+            self.__queue = inbox
+        self.__queue = asyncio.Queue(maxsize=mailbox_size)
+        self.__router_queue = BlockingQueue(max_size=mailbox_size)
         self.actor_set = actors
         self.register_handler(RouteAsk, self.route_ask)
         self.register_handler(RouteTell, self.route_tell)
         self.register_handler(RouteBroadcast, self.attempt_broadcast)
         self.actor_system = None
         self.sys_path = None
+
+    def get_router_queue(self):
+        return self.__router_queue
 
     def get_num_actors(self):
         return len(self.actor_set)
@@ -70,10 +72,8 @@ class BalancingRouter(BaseActor):
                     "Actor to Add to Round Robin Router Not Working")
     
             if actor not in self.actor_set:
-                actor._inbox = self._queue
                 self.actor_set.append(actor)
             actor.__inbox = self.__router_queue
-            print(actor.__inbox)
             if self.sys_path is not None and self.actor_system is not None:
                 self.actor_system.add_actor(actor, self.sys_path)
         except Exception as e:
@@ -112,8 +112,7 @@ class BalancingRouter(BaseActor):
                 print("Message to remove request empty")
         except Exception as e:
             self.handle_fail()
-        
-        
+
     async def route_ask(self, message):
         """
         Send an ask request to the queue.  The queue calls must block.
@@ -124,7 +123,7 @@ class BalancingRouter(BaseActor):
             print("Inserting message")
             if not message.result:
                 message.result = asyncio.Future(loop=self.loop)
-            self._queue.put(message)
+            await self.__router_queue.put(message)
             print("Awaiting Result")
             res = await message.result
             print(res)
@@ -138,7 +137,9 @@ class BalancingRouter(BaseActor):
         should block.
         """
         try:
-            self._queue.put(message)
+            print("Telling")
+            await self.__router_queue.put(message)
+            print("Done Telling")
         except Exception as e:
             self.handle_fail()
 
@@ -150,6 +151,6 @@ class BalancingRouter(BaseActor):
         """
         try:
             for actor in self.actors:
-                self._queue._put(message)
+                self.__queue._put(message)
         except Exception as e:
             self.handle_fail()
