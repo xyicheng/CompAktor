@@ -4,7 +4,7 @@ CompAktor is an attempt to create a full fledged actor system akin to Akka in Py
 
 As I am just starting my Python 3.x and asyncio journey, the base actors are from the Cleveland project (https://github.com/biesnecker/cleveland). They have been updated to Python 3.5+ and changed to reflect be more Akka-like.
 
-Join us on Slack [[https://join.slack.com/t/compaktor/signup]].
+Join us on Slack (https://join.slack.com/t/compaktor/signup).
 
 # Achieving Concurrency
 
