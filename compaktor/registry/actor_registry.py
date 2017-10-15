@@ -7,11 +7,9 @@ Created on Oct 14, 2017
 @author: aevans
 '''
 
-import asyncio
 import os
 from compaktor.registry.objects.node import RegistryNode as Node
 from compaktor.state.actor_state import ActorState
-import pdb
 
 
 __REGISTRY = None
@@ -40,6 +38,9 @@ class Registry(object):
         :type host: str()
         """
         self.__init__(host)
+
+    def get_sep(self):
+        return self.__sep
 
     def set_sep(self, sep):
         """

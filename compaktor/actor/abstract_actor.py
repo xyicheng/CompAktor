@@ -8,6 +8,7 @@ import asyncio
 import time
 import traceback
 from compaktor.utils.name_utils import NameCreationUtils
+from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
 from compaktor.message.message_objects import QueryMessage
 
@@ -147,7 +148,12 @@ class AbstractActor(object):
         :type message:  Message()
         """
         try:
-            await target._receive(message)
+            if isinstance(target, str):
+                target = registry.get_registry().find_node(target)
+            if target:
+                await target._receive(message)
+            else:
+                print("Target Does Not Exist")
         except AttributeError as ex:
             err = "Target Does not Have a _receive method. Is it an actor?"
             raise TypeError(err) from ex

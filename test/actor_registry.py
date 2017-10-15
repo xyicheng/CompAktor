@@ -6,7 +6,6 @@ Created on Oct 14, 2017
 @author: aevans
 '''
 
-import pdb
 import pytest
 from test.actor import StringTestActor
 from compaktor.state.actor_state import ActorState
@@ -129,7 +128,3 @@ def test_dual_multi_level():
     registry.stop_all()
     assert(testa.get_state() == ActorState.TERMINATED)
     assert(testb.get_state() == ActorState.TERMINATED)
-
-
-if __name__ == "__main__":
-    test_add_actor_at_root()

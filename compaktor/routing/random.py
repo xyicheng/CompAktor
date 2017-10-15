@@ -4,14 +4,15 @@ Created on Sep 21, 2017
 @author: aevans
 '''
 
-import pdb
 import asyncio
 import random
 from compaktor.actor.base_actor import BaseActor
-from compaktor.errors.actor_errors import ActorStateError, HandlerNotFoundError
+from compaktor.errors.actor_errors import ActorStateError
 from compaktor.message.message_objects import RouteAsk, RouteBroadcast,\
     RouteTell, DeSubscribe
+from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
+from compaktor.utils.name_utils import NameCreationUtils
 
 
 class RandomRouter(BaseActor):
@@ -21,6 +22,12 @@ class RandomRouter(BaseActor):
 
     def __init__(self,  name=None, loop=None, address=None, mailbox_size=10000,\
                 actors=[], inbox=None):
+        if name is None:
+            name = NameCreationUtils.get_name_base()
+            name += "_"
+            name += str(int(random.random() * 1000))
+        if address is None:
+            address = name
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.actor_set = actors
         if self.actor_set:
@@ -74,7 +81,11 @@ class RandomRouter(BaseActor):
     
             if actor not in self.actor_set:
                 self.actor_set.append(actor)
-    
+                if self.address and actor.name:
+                    node_addr = [x for x in self.address]
+                    node_addr.append(actor.name)
+                    registry.get_registry().add_actor(node_addr, actor, True)
+
             if self.sys_path is not None and self.actor_system is not None:
                 self.actor_system.add_actor(actor, self.sys_path)
         except Exception as e:

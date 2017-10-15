@@ -11,6 +11,7 @@ import logging
 from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.errors.actor_errors import HandlerNotFoundError
 from compaktor.message.message_objects import QueryMessage, PoisonPill
+from compaktor.registry import actor_registry as registry
 from compaktor.utils.name_utils import NameCreationUtils 
 from abc import abstractmethod
 
@@ -37,7 +38,9 @@ class BaseActor(AbstractActor):
         :type inbox: asyncio.Queue()
         """
         if name is None:
-            str(NameCreationUtils.get_name_base())
+            name = str(NameCreationUtils.get_name_base())
+        if address is None:
+            address = name
         super().__init__(name, loop, address)
         self.__max_inbox_size = mailbox_size
         self.__inbox = inbox
@@ -47,6 +50,12 @@ class BaseActor(AbstractActor):
         self._handlers = {}
         self.register_handler(PoisonPill, self._stop_message_handler)
         self.address = address
+        if self.address:
+            if isinstance(self.address, str):
+                self.address.split(registry.get_registry().get_sep())
+            else:
+                self.address = list(self.address)
+            registry.get_registry().add_actor(self.address, self, True)
 
     def set_address(self, address):
         self.address = address
