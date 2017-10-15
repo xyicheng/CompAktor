@@ -38,7 +38,6 @@ class BaseActor(AbstractActor):
         """
         if name is None:
             str(NameCreationUtils.get_name_base())
-        self.__address = address
         super().__init__(name, loop, address)
         self.__max_inbox_size = mailbox_size
         self.__inbox = inbox
@@ -47,6 +46,13 @@ class BaseActor(AbstractActor):
                 maxsize=self.__max_inbox_size, loop=self.loop)
         self._handlers = {}
         self.register_handler(PoisonPill, self._stop_message_handler)
+        self.address = address
+
+    def set_address(self, address):
+        self.address = address
+
+    def get_address(self):
+        return self.address
 
     def get_name(self):
         """

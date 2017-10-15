@@ -7,8 +7,8 @@ Created on Oct 14, 2017
 
 class RegistryNode:
 
-    def __init__(self, address, actor, is_local):
-        self.address = address
+    def __init__(self, name, actor, is_local):
+        self.name = name
         self.actor = actor
         self.is_local = is_local
         self.children = []

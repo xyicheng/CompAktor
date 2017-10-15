@@ -9,13 +9,15 @@ Created on Oct 14, 2017
 
 import asyncio
 import os
-import socket
 from compaktor.registry.objects.node import RegistryNode as Node
 from compaktor.state.actor_state import ActorState
+import pdb
+
 
 __REGISTRY = None
 
-class Registry:
+
+class Registry(object):
     """
     The registry to use.
     """
@@ -28,6 +30,16 @@ class Registry:
         """
         self.__root = Node(host, None, True)
         self.__sep = os.path.sep
+        self.__host = host
+
+    def __enter__(self,host):
+        """
+        Enter for use alongside with
+
+        :param host: The host to use
+        :type host: str()
+        """
+        self.__init__(host)
 
     def set_sep(self, sep):
         """
@@ -39,7 +51,7 @@ class Registry:
         if isinstance(sep, str):
             self.__sep = sep
         else:
-            raise TypeError("Separator Must be String")
+            raise TypeError("Separator Must be String")        
 
     def __find_node(self, addr_arr, node, idx):
         """
@@ -57,14 +69,17 @@ class Registry:
         elif idx == len(addr_arr) - 1:
             if node.name == addr_arr[len(addr_arr) - 1]:
                 return node
-        children = node.children
-        addr_part = addr_arr[idx]
-        if len(children) is 0:
-            return None
-        for child in children:
-            if child.name == addr_part:
-                idx += 1
-                return self.__find_node(addr_arr, node, idx)
+            else:
+                return None
+        else:
+            idx += 1
+            children = node.children
+            addr_part = addr_arr[idx]
+            if len(children) is 0:
+                return None
+            for child in children:
+                if child.name == addr_part:
+                    return self.__find_node(addr_arr, child, idx)
         return None
 
     def find_node(self, address):
@@ -81,11 +96,8 @@ class Registry:
         if isinstance(address, str):
             addr_arr = address.split(self.__sep)
         else:
-            try:
-                addr_arr = list(address)
-            except:
-                raise TypeError("Address for registry must be of type str")
-        self.find_node(addr_arr)
+            addr_arr = list(address)
+        return self.__find_node(addr_arr, self.__root, 0)
 
     def add_actor(self, address, actor, is_local):
         """
@@ -98,23 +110,22 @@ class Registry:
         :param is_local: Whether the node is local
         :type is_local: bool()
         """
+        if address is None:
+            raise ValueError("Address must be provided.")
         if actor.name is None:
             raise ValueError("Actor must have a name")
-
         if isinstance(address, str):
             address = address.split(self.__sep)
-        if len(address) > 1:
+        if len(address) > 0:
             node = self.find_node(address)
             if node is None:
                 raise ValueError(
-                    "Node not Found for Path [{}]".format(str(address)))
+                    "Node not Found for Path {}".format(str(address)))
             new_node = Node(actor.name, actor, is_local)
             address.append(actor.name)
-            actor.address = address
-            node.paranet.append(new_node)
-        elif len(address) == 1:
-            raise ValueError(
-                "Address must contain full Path [{}]".format(str(address)))
+            new_node.actor.address = address
+            node.children.append(new_node)
+            new_node.parent = node
         else:
             raise ValueError("Address Is Empty")
 
@@ -127,7 +138,7 @@ class Registry:
         """
         if node.actor:
             if node.actor.get_state() == ActorState.RUNNING:
-                asyncio.run_coroutine_threadsafe(node.actor.stop())
+                node.actor.loop.run_until_complete(node.actor.stop())
         if node.children:
             for child in node.children:
                 self.__stop_all(child)
@@ -160,7 +171,24 @@ class Registry:
         else:
             raise ValueError("Node not found for path {}".format(address))
 
+    def close(self):
+        """
+        Stop the actors in the system and reset the root.
+        """
+        self.stop_all()
+        self.__root = Node(self.__host, actor=None, is_local=True)
+
+    def __exit__(self):
+        """
+        Closeable exit
+        """
+        self.close()
+
+
 def get_registry():
+    """
+    Get the registry.
+    """
     if __REGISTRY is None:
         __REGISTRY = Registry()
     return __REGISTRY
