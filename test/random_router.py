@@ -85,7 +85,7 @@ def test_random_router_arithmetic():
     asyncio.get_event_loop().run_until_complete(rr.stop())
     msg = "Actors Missing. Length {}".format(rr.get_num_actors())
     assert(rr.get_num_actors() is 2), msg
-    
+
     assert(a.get_state() is ActorState.TERMINATED), "Actor a Not Terminated"
     assert(b.get_state() is ActorState.TERMINATED), " Actor b Not Terminated"
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
