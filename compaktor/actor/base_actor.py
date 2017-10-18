@@ -6,6 +6,7 @@ Created on Aug 18, 2017
 @author: aevans
 '''
 
+import pdb
 import asyncio
 import logging
 from compaktor.actor.abstract_actor import AbstractActor
@@ -40,7 +41,8 @@ class BaseActor(AbstractActor):
         if name is None:
             name = str(NameCreationUtils.get_name_base())
         if address is None:
-            address = name
+            address = [registry.get_registry().get_host()]
+            address.append(name)
         super().__init__(name, loop, address)
         self.__max_inbox_size = mailbox_size
         self.__inbox = inbox
@@ -52,10 +54,13 @@ class BaseActor(AbstractActor):
         self.address = address
         if self.address:
             if isinstance(self.address, str):
-                self.address.split(registry.get_registry().get_sep())
+                t_addr = [registry.get_registry().get_host()]
+                self.address = self.address.split(registry.get_registry().get_sep())
+                t_addr.extend(t_addr)
+                self.address = t_addr
             else:
                 self.address = list(self.address)
-            registry.get_registry().add_actor(self.address, self, True)
+            registry.get_registry().add_actor(self.address[:-1], self, True)
 
     def set_address(self, address):
         self.address = address

@@ -18,6 +18,7 @@ def test_add_actor_at_root():
     """
     registry = Registry("localhost")
     testa = StringTestActor("string_test")
+    print(testa)
     testa.start()
     registry.add_actor("localhost", testa, is_local=True)
     node = registry.find_node(["localhost","string_test"])
