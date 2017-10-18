@@ -250,9 +250,5 @@ def get_registry(host="localhost"):
     """
     global __REGISTRY
     if __REGISTRY is None:
-<<<<<<< HEAD
         __REGISTRY = Registry(host)
-=======
-        __REGISTRY = Registry("localhost")
->>>>>>> 13c1753c2f7dae0d44fd74b4dfd5c496301804d7
     return __REGISTRY
