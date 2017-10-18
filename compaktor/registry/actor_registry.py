@@ -186,10 +186,11 @@ class Registry(object):
         self.close()
 
 
-def get_registry():
+def get_registry(host="localhost"):
     """
     Get the registry.
     """
+    global __REGISTRY
     if __REGISTRY is None:
-        __REGISTRY = Registry()
+        __REGISTRY = Registry(host)
     return __REGISTRY
