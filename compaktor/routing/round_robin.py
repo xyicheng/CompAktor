@@ -4,6 +4,7 @@ Created on Sep 21, 2017
 @author: aevans
 '''
 
+import pdb
 import asyncio
 from atomos import atomic
 from compaktor.actor.base_actor import BaseActor
@@ -70,9 +71,10 @@ class RoundRobinRouter(BaseActor):
         if actor not in self.actor_set:
             self.actor_set.append(actor)
             if self.address and actor.name:
-                    node_addr = [x for x in self.address]
-                    node_addr.append(actor.name)
-                    registry.get_registry().add_actor(node_addr, actor, True)
+                reg_host = registry.get_registry().get_host()
+                node_addr = [x for x in self.address if x is not reg_host]
+                node_addr.append(actor.name)
+                registry.get_registry().add_actor(node_addr, actor, True)
 
         if self.sys_path is not None and self.actor_system is not None:
             self.actor_system.add_actor(actor, self.sys_path)
