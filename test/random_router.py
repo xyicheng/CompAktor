@@ -28,11 +28,9 @@ def test_random_router_creation():
     print("Completed Router Creation Test")
 
 
-def test__random_router_actor_addition():
+def test_random_router_actor_addition():
     print("Starting Actor Addition Test")
     sys = ActorSystem("tests")
-    kwargs = {'name': 'test_router'}
-    args = []
     rr = RandomRouter("test_router")
     rr.start()
     rr.set_actor_system(sys, "tests")
