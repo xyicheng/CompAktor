@@ -12,6 +12,7 @@ from compaktor.system.actor_system import ActorSystem
 from compaktor.state.actor_state import ActorState
 from compaktor.routing.random import RandomRouter
 from compaktor.actor.base_actor import BaseActor
+import pdb
 
 
 def test_random_router_creation():

@@ -6,7 +6,6 @@ Created on Aug 18, 2017
 @author: aevans
 '''
 
-import pdb
 import asyncio
 import logging
 from compaktor.actor.abstract_actor import AbstractActor

@@ -4,7 +4,6 @@ Created on Sep 21, 2017
 @author: aevans
 '''
 
-import pdb
 import asyncio
 from atomos import atomic
 from compaktor.actor.base_actor import BaseActor
@@ -61,23 +60,25 @@ class RoundRobinRouter(BaseActor):
 
         :param actor:  The actor to add to the router
         """
-        if actor.get_state() is ActorState.LIMBO:
-            actor.start()
+        try:
+            if actor.get_state() is ActorState.LIMBO:
+                actor.start()
+    
+            if actor.get_state() is not ActorState.RUNNING:
+                raise ActorStateError(
+                    "Actor to Add to Round Robin Router Not Working")
+    
+            if actor not in self.actor_set:
+                self.actor_set.append(actor)
+                if self.address and actor.name:
+                    node_addr = [x for x in self.address]
+                    registry.get_registry().add_actor(node_addr, actor, True)
+                    actor.set_address(node_addr)
 
-        if actor.get_state() is not ActorState.RUNNING:
-            raise ActorStateError(
-                "Actor to Add to Round Robin Router Not Working")
-        
-        if actor not in self.actor_set:
-            self.actor_set.append(actor)
-            if self.address and actor.name:
-                reg_host = registry.get_registry().get_host()
-                node_addr = [x for x in self.address if x is not reg_host]
-                node_addr.append(actor.name)
-                registry.get_registry().add_actor(node_addr, actor, True)
-
-        if self.sys_path is not None and self.actor_system is not None:
-            self.actor_system.add_actor(actor, self.sys_path)
+            if self.sys_path is not None and self.actor_system is not None:
+                self.actor_system.add_actor(actor, self.sys_path)
+        except Exception as e:
+            self.handle_fail()
 
     def get_num_actors(self):
         return len(self.actor_set)

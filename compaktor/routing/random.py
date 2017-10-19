@@ -13,6 +13,7 @@ from compaktor.message.message_objects import RouteAsk, RouteBroadcast,\
 from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
 from compaktor.utils.name_utils import NameCreationUtils
+from test.random_router import test_random_router_actor_addition
 
 
 class RandomRouter(BaseActor):
@@ -77,14 +78,14 @@ class RandomRouter(BaseActor):
     
             if actor.get_state() is not ActorState.RUNNING:
                 raise ActorStateError(
-                    "Actor to Add to Round Robin Router Not Working")
+                    "Actor to Add to Random Router Not Working")
     
             if actor not in self.actor_set:
                 self.actor_set.append(actor)
                 if self.address and actor.name:
                     node_addr = [x for x in self.address]
-                    node_addr.append(actor.name)
                     registry.get_registry().add_actor(node_addr, actor, True)
+                    actor.set_address(node_addr)
 
             if self.sys_path is not None and self.actor_system is not None:
                 self.actor_system.add_actor(actor, self.sys_path)

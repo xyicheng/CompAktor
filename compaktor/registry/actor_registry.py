@@ -7,7 +7,6 @@ Created on Oct 14, 2017
 @author: aevans
 '''
 
-import pdb
 import os
 from compaktor.registry.objects.node import RegistryNode as Node
 from compaktor.state.actor_state import ActorState
@@ -179,7 +178,6 @@ class Registry(object):
                 address = addr_t.extend([x for x in address])
             node = self.find_node(address)
             if node is None:
-                pdb.set_trace()
                 raise ValueError(
                     "Node not Found for Path {}".format(str(address)))
             new_node = Node(actor.name, actor, is_local)
