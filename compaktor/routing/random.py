@@ -13,7 +13,6 @@ from compaktor.message.message_objects import RouteAsk, RouteBroadcast,\
 from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
 from compaktor.utils.name_utils import NameCreationUtils
-from test.random_router import test_random_router_actor_addition
 
 
 class RandomRouter(BaseActor):

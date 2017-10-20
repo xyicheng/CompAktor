@@ -23,7 +23,7 @@ class RoundRobinRouter(BaseActor):
     def __init__(self, name=None, loop=None, address=None, mailbox_size=10000,
                  inbox=None, actors=[]):
         if name is None:
-            name = NameCreationUtils.get_name_base()
+            name = str(NameCreationUtils.get_name_base())
             name += "_"
             name += str(int(random() * 1000))
         if address is None:

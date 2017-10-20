@@ -79,6 +79,8 @@ class RouteBroadcast(Message):
 class Pull(Message):
     pass
 
+class PullQuery(QueryMessage):
+    pass
 
 class Publish(Message):
     pass

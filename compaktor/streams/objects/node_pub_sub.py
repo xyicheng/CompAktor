@@ -12,10 +12,11 @@ from queue import Queue as PyQueue
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Publish, Pull,\
                                                 DeSubscribe, Subscribe,\
-    TaskMessage
+    TaskMessage, Tick
 from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.routing.round_robin import RoundRobinRouter
 from compaktor.streams.objects.stage_task_actor import TaskActor
+from compaktor.state.actor_state import ActorState
 
 
 class NodePubSub(PubSub):
@@ -25,10 +26,10 @@ class NodePubSub(PubSub):
     Non-blocking io should assure maximal concurrency.
     """
 
-    def __init__(self, name, providers, loop=asyncio.get_event_loop(),
+    def __init__(self, name, providers=[], loop=asyncio.get_event_loop(),
                  address=None, mailbox_size=1000, inbox=None,
                  empty_demand_logic = "broadcast", concurrency=cpu_count(),
-                 tick_delay=10):
+                 tick_delay=120):
         """
         Constructor
 
@@ -51,8 +52,6 @@ class NodePubSub(PubSub):
         self.subscribers = []
         self.__providers = providers
         self.__current_provider = 0
-        if self.__providers is None or len(self.__providers) is 0:
-            raise ValueError("Initial providers must be supplied")
         self.__task_q = PyQueue()
         self.__empty_logic = empty_demand_logic
         self.__result_q = PyQueue()
@@ -60,15 +59,16 @@ class NodePubSub(PubSub):
         self.create_router(concurrency)
         self.set_handlers()
         self.tick_delay = tick_delay
-        self.run_on_empty(concurrency)
+        self.__concurrency = concurrency
         self.__pull_tick()
+        self.register_handler(Tick, self.__pull_tick())
 
     def set_handlers(self):
         """
         Set the handlers for the actor
         """
-        self.register_handler(Publish, self.__pull)
-        self.register_handler(Pull, self.__push)
+        self.register_handler(Publish, self.pull)
+        self.register_handler(Pull, self.push)
         self.register_handler(DeSubscribe, self.__de_subscribe_upstream)
         self.register_handler(Subscribe, self.__subscribe_upstream)
         self.register_handler(TaskMessage, self.__append_result)
@@ -91,36 +91,49 @@ class NodePubSub(PubSub):
             except Exception as e:
                 self.handle_fail()
 
-    def run_on_empty(self, concurrency):
-        for i in range(0, concurrency):
-            if self.__empty_logic == "broadcast":
-                for provider in self.__providers:
-                    asyncio.run_coroutine_threadsafe(self.tell(provider, Pull(None, self)))
-            else:
-                if len(self.__providers) > 0:
-                    if self.__current_provider >= len(self.__providers):
-                        self.__current_provider = 0
-                    prov = self.__providers[self.__current_provider]
-                    asyncio.run_coroutine_threadsafe(self.tell(prov, Pull(None, self)))
-                    self.__current_provider += 1
+    def start(self):
+        super().start()
+        if len(self.__providers) > 0:
+            for i in range(0, self.__concurrency):
+                if self.__empty_logic == "broadcast":
+                    for provider in self.__providers:
+                        asyncio.run_coroutine_threadsafe(
+                            self.tell(provider, Pull(None, self)))
+                else:
+                    if len(self.__providers) > i:
+                        if i < len(self.__providers):
+                            lprv = len(self.__providers)
+                            if self.__current_provider >= lprv:
+                                self.__current_provider = 0
+                            prov = self.__providers[self.__current_provider]
+                            asyncio.run_coroutine_threadsafe(
+                                self.tell(prov, Pull(None, self)))
+                            self.__current_provider += 1
+
+    def __call_tick(self):
+        self.loop.run_until_complete(self.tell(self, Tick(None, self)))
 
     def __do_pull_tick(self):
         """
         Do a pull tick
         """
         try:
-            if self._task_q.full() is False:
-                sender = self.__providers[self.__current_provider]
-                self.loop.run_until_complete(
-                    self.tell(self,Pull(None, sender)))
-                self.__current_provider += 1
-                if self.__current_provider >= len(self.__providers):
+            if self.__task_q.full() is False:
+                if len(self.__providers) > 0:
+                    sender = self.__providers[self.__current_provider]
+                    self.loop.run_until_complete(
+                        self.tell(self,Pull(None, sender)))
+                    self.__current_provider += 1
+                    if self.__current_provider >= len(self.__providers):
+                        self.__current_provider = 0
+                else:
                     self.__current_provider = 0
         except Exception as e:
             self.handle_fail()
 
         try:
-            self.loop.call_later(self.tick_delay, self.__do_pull_tick())
+            if self.get_state() != ActorState.TERMINATED:
+                self.loop.call_later(self.tick_delay, self.__call_tick())
         except Exception as e:
             self.handle_fail()
 

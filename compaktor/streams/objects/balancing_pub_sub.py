@@ -17,6 +17,7 @@ from compaktor.message.message_objects import Publish, Pull,\
 from compaktor.actor.abstract_actor import AbstractActor
 from abc import abstractmethod
 from compaktor.streams.objects.stage_task_actor import TaskActor
+from compaktor.state.actor_state import ActorState
 
 
 class BalancingPubSub(PubSub):
@@ -29,11 +30,11 @@ class BalancingPubSub(PubSub):
     The user also implements the on_pull function to perform actions on pull.
     """
 
-    def __init__(self, name, providers, push_q=SafeQ().async_q,
+    def __init__(self, name, providers=[], push_q=SafeQ().async_q,
                  loop=asyncio.get_event_loop(), address=None,
                  mailbox_size=1000, inbox=SafeQ().async_q,
                  empty_demand_logic="broadcast", concurrency=cpu_count(),
-                 routing_logic="round_robin", concurrency=cpu_count()):
+                 routing_logic="round_robin", tick_delay=120):
         """
         Constructor
 
@@ -59,14 +60,13 @@ class BalancingPubSub(PubSub):
         self.result_q = PyQueue()
         self.__subscribers = []
         self.__providers = providers
-        if self.__providers is None or len(self.__providers) is 0:
-            raise ValueError("InitialProviders Must Exist")
         self.__current_provider = 0
         self.__task_q = PyQueue()
         self.__empty_demand_logic = empty_demand_logic
         self.__concurrency = concurrency
         self.__routing_logic = routing_logic
         self.set_handlers()
+        self.tick_delay = tick_delay
         self.run_on_empty(self.__concurrency)
         self.__pull_tick()
 
@@ -86,17 +86,22 @@ class BalancingPubSub(PubSub):
         """
         try:
             if self._task_q.full() is False:
-                sender = self.__providers[self.__current_provider]
-                self.loop.run_until_complete(
-                    self.tell(self,Pull(None, sender)))
-                self.__current_provider += 1
-                if self.__current_provider >= len(self.__providers):
+                if len(self.__providers) > 0:
+                    sender = self.__providers[self.__current_provider]
+                    self.loop.run_until_complete(
+                        self.tell(self,Pull(None, sender)))
+                    self.__current_provider += 1
+                    if self.__current_provider >= len(self.__providers):
+                        self.__current_provider = 0
+                        
+                else:
                     self.__current_provider = 0
         except Exception as e:
             self.handle_fail()
 
         try:
-            self.loop.call_later(self.tick_delay, self.__do_pull_tick())
+            if self.get_state() != ActorState.TERMINATED:
+                self.loop.call_later(self.tick_delay, self.__do_pull_tick())
         except Exception as e:
             self.handle_fail()
 
@@ -127,7 +132,7 @@ class BalancingPubSub(PubSub):
                 for provider in self.__providers:
                     asyncio.run_coroutine_threadsafe(self.tell(provider, Pull(None, self)))
             else:
-                if len(self.__providers) > 0:
+                if len(self.__providers) > i:
                     if self.__current_provider >= len(self.__providers):
                         self.__current_provider = 0
                     prov = self.__providers[self.__current_provider]
