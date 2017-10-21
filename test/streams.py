@@ -13,7 +13,7 @@ from compaktor.state.actor_state import ActorState
 
 class TestStreams(unittest.TestCase):
 
-    def test_source_start(self):
+    def stest_source_start(self):
         src = StringSource()
         src.start()
         assert(src.get_state() == ActorState.RUNNING)
@@ -22,7 +22,7 @@ class TestStreams(unittest.TestCase):
         asyncio.get_event_loop().run_until_complete(src.stop())
         assert(src.get_state() == ActorState.TERMINATED)
 
-    def test_sink_start(self):
+    def stest_sink_start(self):
         sink = PrintSink()
         sink.start()
         assert (sink.get_state() == ActorState.RUNNING)
@@ -31,18 +31,24 @@ class TestStreams(unittest.TestCase):
             asyncio.get_event_loop().run_until_complete(sink.tell(sink, pub))
         asyncio.get_event_loop().run_until_complete(sink.stop())
 
-    def test_node_start(self):
+    def stest_node_start(self):
         sn = SplitNode()
         sn.start()
-        
-        
+        assert(sn.get_state() == ActorState.RUNNING)
+        asyncio.get_event_loop().run_until_complete(sn.stop())
+        assert(sn.get_state() == ActorState.TERMINATED)
 
     def test_stream_setup(self):
-        pass
+        src = StringSource()
+        src.start()
+        sn = SplitNode()
+        sn.start()
+        ps = PrintSink()
+        ps.start()
+        asyncio.get_event_loop().run_until_complete(src.subscribe(sn))
+        asyncio.get_event_loop().run_until_complete(sn.subscribe(ps))
+        asyncio.get_event_loop().run_forever()
 
-    def test_string_split(self):
-        pass
-    
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,7 +12,6 @@ from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Pull, Subscribe, DeSubscribe,\
     Publish, PullQuery
 from abc import abstractmethod
-import pdb
 
 
 class Source(PubSub):
