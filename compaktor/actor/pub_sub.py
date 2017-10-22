@@ -47,13 +47,13 @@ class PubSub(BaseActor):
         """
         try:
             self._subscription_router.add_actor(actor)
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     async def desubscribe(self, message):
         try:
             await self.tell(self._subscription_router, message)
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     def broadcast(self, message):
@@ -63,7 +63,7 @@ class PubSub(BaseActor):
         try:
             self.loop.run_until_complete(self.tell(
                 self._subscription_router, RouteBroadcast(message)))
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     async def do_publish(self, message):
@@ -72,7 +72,7 @@ class PubSub(BaseActor):
         """
         try:
             await self.tell(self._subscription_router, RouteTell(message.payload))
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     async def handle_broadcast(self, message):
@@ -83,5 +83,5 @@ class PubSub(BaseActor):
         try:
             for actor in self._subscribers:
                 await self.tell(actor, message)
-        except Exception as e:
+        except Exception:
             self.handle_fail()

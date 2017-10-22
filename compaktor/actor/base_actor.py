@@ -106,6 +106,9 @@ class BaseActor(AbstractActor):
                     response = await handler(message)
                 else:
                     logging.warning("Handler is NoneType")
+                    logging.warning("Message is {}".format(str(message)))
+                    logging.warning("Message Type {}".format(str(type(message))))
+                    logging.warning("Sender {}".format(str(message.sender)))
                     self.handle_fail()
             except Exception as ex:
                 if is_query:
@@ -159,7 +162,7 @@ class BaseActor(AbstractActor):
 
     def __repr__(self, *args, **kwargs):
         """
-        Get the represenation from the AbstractoActor
+        Get the representation from the AbstractoActor
 
         :param args: list args
         :type args: list()

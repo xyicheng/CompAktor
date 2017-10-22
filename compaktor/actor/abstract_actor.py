@@ -175,7 +175,7 @@ class AbstractActor(object):
             asyncio.run_coroutine_threadsafe(self.tell(target, message),self.loop)
             res = await message.result
             return res
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     def handle_fail(self):

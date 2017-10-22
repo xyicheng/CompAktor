@@ -4,12 +4,11 @@ Created on Oct 19, 2017
 @author: simplrdev
 '''
 
-
 from compaktor.streams.objects.node_pub_sub import NodePubSub
 from compaktor.streams.objects.source import Source
 from compaktor.streams.objects.sink import Sink
 from abc import abstractmethod
-import pdb
+
 
 class StringSource(Source):
 
