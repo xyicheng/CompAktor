@@ -9,6 +9,7 @@ import asyncio
 from test.modules.streams.objects import StringSource, SplitNode, PrintSink
 from compaktor.message.message_objects import PullQuery, Publish
 from compaktor.state.actor_state import ActorState
+from compaktor.streams.objects.node_pub_sub import NodePubSub
 
 class TestStreams(unittest.TestCase):
 
@@ -43,14 +44,14 @@ class TestStreams(unittest.TestCase):
         assert(sn.get_state() == ActorState.TERMINATED)
 
     def test_stream_setup(self):
-        #src = StringSource()
-        #src.start()
+        src = StringSource()
+        src.start()
         sn = SplitNode()
         sn.start()
-        #ps = PrintSink()
-        #ps.start()
-        #asyncio.get_event_loop().run_until_complete(src.subscribe(sn))
-        #asyncio.get_event_loop().run_until_complete(sn.subscribe(ps))
+        ps = PrintSink()
+        ps.start()
+        asyncio.get_event_loop().run_until_complete(src.subscribe(sn))
+        asyncio.get_event_loop().run_until_complete(sn.subscribe(ps))
         asyncio.get_event_loop().run_forever()
 
 

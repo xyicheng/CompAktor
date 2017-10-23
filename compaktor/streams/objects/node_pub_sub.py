@@ -6,6 +6,7 @@ Created on Oct 7, 2017
 '''
 
 import asyncio
+from datetime import datetime
 import logging
 from multiprocessing import cpu_count
 from queue import Queue as PyQueue
@@ -17,7 +18,7 @@ from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.routing.round_robin import RoundRobinRouter
 from compaktor.streams.objects.stage_task_actor import TaskActor
 from compaktor.state.actor_state import ActorState
-import pdb
+from _datetime import timedelta
 
 
 class NodePubSub(PubSub):
@@ -117,7 +118,7 @@ class NodePubSub(PubSub):
                                 self.tell(prov, Pull(None, self)))
                             self.__current_provider += 1
 
-    def __call_tick(self):
+    def call_tick(self):
         """
         Perform a tick call.
         """
@@ -132,7 +133,7 @@ class NodePubSub(PubSub):
                 self.handle_fail()
         try:
             self.loop.call_later(
-                delay=self.tick_delay, callback=handle_tick())
+                delay = self.tick_delay, callback=handle_tick)
         except Exception:
             self.handle_fail()
 
@@ -150,7 +151,7 @@ class NodePubSub(PubSub):
                     if len(self.__providers) > 0:
                         sender = self.__providers[self.__current_provider]
                         self.loop.run_until_complete(
-                            self.tell(self,Pull(None, sender)))
+                            self.tell(sender,Pull(None, sender)))
                         self.__current_provider += 1
                         if self.__current_provider >= len(self.__providers):
                             self.__current_provider = 0
@@ -162,7 +163,7 @@ class NodePubSub(PubSub):
             self.handle_fail()
         try:
             if self.get_state() != ActorState.TERMINATED:
-                self.__call_tick()
+                self.call_tick()
         except Exception:
             self.handle_fail()
 
