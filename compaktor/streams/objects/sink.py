@@ -11,6 +11,7 @@ from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Pull, Publish
 from abc import abstractmethod
 from multiprocessing import cpu_count
+import pdb
 
 
 class Sink(PubSub):
@@ -39,13 +40,14 @@ class Sink(PubSub):
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.register_handler(Publish, self.__push)
         self.__providers = providers
-        if self.__providers is None or len(self.__providers) is 0:
-            raise ValueError("Providers Cannot Initially be None or Empty")
         self.__concurrency = concurrency
 
-    def start_sink(self):
-        for provider in self.__providers:
-            asyncio.run_coroutine_threadsafe(self.tell(provider, Pull(None, self)))
+    def start(self):
+        super().start()
+        if len(self.__providers) > 0:
+            for provider in self.__providers:
+                asyncio.run_coroutine_threadsafe(
+                    self.tell(provider, Pull(None, self)))
 
     def __do_pull_tick(self):
         """
@@ -81,7 +83,8 @@ class Sink(PubSub):
             if isinstance(message, Publish):
                 sender = message.sender
                 self.on_push(message)
-                await self.tell(sender, Pull(None, self))
+                if sender:
+                    await self.tell(sender, Pull(None, self))
         except Exception as e:
             self.handle_fail()
 

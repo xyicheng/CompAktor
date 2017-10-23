@@ -7,10 +7,10 @@ Created on Oct 14, 2017
 @author: aevans
 '''
 
-import asyncio
 import os
 from compaktor.registry.objects.node import RegistryNode as Node
 from compaktor.state.actor_state import ActorState
+from compaktor import registry
 import pdb
 
 
@@ -41,6 +41,12 @@ class Registry(object):
         """
         self.__init__(host)
 
+    def get_host(self):
+        return self.__host
+
+    def get_sep(self):
+        return self.__sep
+
     def set_sep(self, sep):
         """
         Set the separator.
@@ -52,6 +58,56 @@ class Registry(object):
             self.__sep = sep
         else:
             raise TypeError("Separator Must be String")        
+
+    def move_branch(self, old_address, new_parent_address):
+        """
+        Move an actor in the registry froman old address to be underneath a new parent.
+
+        :param old_address: Currently existing address in the registry
+        :type old_address: str or list
+        :param new_parent_address: Address of the new parent node in the registry
+        :type new_parent_address: str or list
+        """
+        old = old_address
+        if isinstance(old, str):
+            old = old.split(self.get_sep())
+        else:
+            old = list(old)
+
+        new_p = new_parent_address
+        if isinstance(new_p, str):
+            new_p = new_p.split(self.get_sep())
+        else:
+            new_p = list(new_p)
+        old_n = self.find_node(old)
+        new_n = self.find_node(new_p)
+        self.remove_branch(old, stop=False)
+        self.__rename_nodes(new_n.__address, old_n)
+        self.add_actor(new_n.address,old_n, new_n.is_local)
+
+    def __rename_nodes(self, new_base, node):
+        """
+        Moving an actor branch requires moving the child nodes to a new address
+
+        :param new_base: The to use with the node
+        :type new_base: list()
+        :param node: The node to rename and re-insert
+        :type node: BaseActor()
+        """
+        address = node.address
+        if address:
+            if isinstance(address, str):
+                address = address.split(self.get_sep())
+            else:
+                address = list(address)
+            n_address = new_base
+            if n_address:
+                n_address.extend(address[:-1])
+                node.address = n_address
+                if node.children:
+                    c_base = node.address
+                    for child in node.children:
+                        self.__rename_nodes(c_base, child)
 
     def __find_node(self, addr_arr, node, idx):
         """
@@ -117,6 +173,9 @@ class Registry(object):
         if isinstance(address, str):
             address = address.split(self.__sep)
         if len(address) > 0:
+            if self.__host not in address and self.__host:
+                addr_t = [self.__host]
+                address = addr_t.extend([x for x in address])
             node = self.find_node(address)
             if node is None:
                 raise ValueError(
@@ -185,10 +244,11 @@ class Registry(object):
         self.close()
 
 
-def get_registry():
+def get_registry(host="localhost"):
     """
     Get the registry.
     """
+    global __REGISTRY
     if __REGISTRY is None:
-        __REGISTRY = Registry()
+        __REGISTRY = Registry(host)
     return __REGISTRY

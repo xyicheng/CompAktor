@@ -10,8 +10,9 @@ import logging
 from multiprocessing import cpu_count
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Pull, Subscribe, DeSubscribe,\
-    FlowResult, Publish
+    Publish, PullQuery
 from abc import abstractmethod
+import pdb
 
 
 class Source(PubSub):
@@ -23,7 +24,7 @@ class Source(PubSub):
 
     def __init__(self, name, tasks=cpu_count(),loop=asyncio.get_event_loop(),
                  address=None, mailbox_size=1000, inbox=None,
-                 routing_logic="round_robin"):
+                 routing_logic="round_robin", subscribers=[]):
         """
         Constructor
 
@@ -44,9 +45,10 @@ class Source(PubSub):
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.register_handler(Pull, self.__pull)
+        self.register_handler(PullQuery, self.__pull)
         self.register_handler(Subscribe, self.__subscribe)
         self.register_handler(DeSubscribe, self.__de_subscribe)
-        self.subscribers = []
+        self.subscribers = subscribers
         self.current_index = 0
         self.routing_logic = routing_logic
         self.__tasks = tasks
@@ -90,9 +92,9 @@ class Source(PubSub):
                     out_message = Publish(result)
                     try:
                         await self.tell(sender, out_message)
-                    except Exception as e: 
+                    except Exception: 
                         self.handle_fail()
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     @abstractmethod
@@ -112,18 +114,24 @@ class Source(PubSub):
         logging.error("On Complete Not Overridden")
 
     def start(self):
-        for i in range(0, self.__tasks):
-            res = self.on_pull()
-            message = Publish(res, self)
-            if self.routing_logic.lower().strip() == "round_robin":
-                sub = self.subscribers[self.current_index]
-                asyncio.run_coroutine_threadsafe(self.tell(sub, message))
-                self.current_index += 1
-                if self.current_index is len(self.subscribers):
-                    self.current_index = 0
-            elif self.routing_logic.lower().strip() == "broadcast":
-                for sub in self.subscribers:
-                    asyncio.run_coroutine_threadsafe(self.tell(sub, message))
-            else:
-                err_msg = "Source only allows round_robin or braodcast routing logic"
-                logging.error(err_msg)
+        super().start()
+        if len(self.subscribers) > 0:
+            for i in range(0, self.__tasks):
+                if i < len(self.subscribers):
+                    res = self.on_pull()
+                    message = Publish(res, self)
+                    if self.routing_logic.lower().strip() == "round_robin":
+                        sub = self.subscribers[self.current_index]
+                        asyncio.run_coroutine_threadsafe(
+                            self.tell(sub, message))
+                        self.current_index += 1
+                        if self.current_index is len(self.subscribers):
+                            self.current_index = 0
+                    elif self.routing_logic.lower().strip() == "broadcast":
+                        for sub in self.subscribers:
+                            asyncio.run_coroutine_threadsafe(
+                                self.tell(sub, message))
+                    else:
+                        err_msg = "Source only allows round_robin or braodcast"
+                        err_msg += " routing logic"
+                        logging.error(err_msg)

@@ -4,13 +4,11 @@ Created on Aug 30, 2017
 @author: aevans
 '''
 
-
+import asyncio
 from compaktor.actor.base_actor import BaseActor
-from compaktor.errors.actor_errors import HandlerNotFoundError, ActorStateError
-from compaktor.message.message_objects import Message, Publish, Subscribe,\
+from compaktor.errors.actor_errors import ActorStateError
+from compaktor.message.message_objects import Publish, Subscribe,\
     RouteBroadcast, RouteTell, DeSubscribe
-from compaktor.routing.balancing import BalancingRouter
-from compaktor.routing.random import RandomRouter
 from compaktor.routing.round_robin import RoundRobinRouter
 from compaktor.state.actor_state import ActorState
 
@@ -20,7 +18,8 @@ class PubSub(BaseActor):
     Special Publisher/Subscriber for streaming
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name, loop=asyncio.get_event_loop(), address=None,
+                 mailbox_size=1000, inbox=None):
         """
         The constructor
 
@@ -28,8 +27,8 @@ class PubSub(BaseActor):
             *publisher (BaseActor): The publishing actor
             *router (BaseActor): a router for subscribers
         """
-        super().__init__(*args, **kwargs)
-        self._subscription_router = kwargs.get('router', RoundRobinRouter())
+        super().__init__(name, loop, address, mailbox_size, inbox)
+        self._subscription_router = RoundRobinRouter()
         
         if self._subscription_router.get_state() is ActorState.LIMBO:
             self._subscription_router.start()
@@ -48,13 +47,13 @@ class PubSub(BaseActor):
         """
         try:
             self._subscription_router.add_actor(actor)
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     async def desubscribe(self, message):
         try:
             await self.tell(self._subscription_router, message)
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     def broadcast(self, message):
@@ -64,7 +63,7 @@ class PubSub(BaseActor):
         try:
             self.loop.run_until_complete(self.tell(
                 self._subscription_router, RouteBroadcast(message)))
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     async def do_publish(self, message):
@@ -73,7 +72,7 @@ class PubSub(BaseActor):
         """
         try:
             await self.tell(self._subscription_router, RouteTell(message.payload))
-        except Exception as e:
+        except Exception:
             self.handle_fail()
 
     async def handle_broadcast(self, message):
@@ -84,5 +83,5 @@ class PubSub(BaseActor):
         try:
             for actor in self._subscribers:
                 await self.tell(actor, message)
-        except Exception as e:
+        except Exception:
             self.handle_fail()

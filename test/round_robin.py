@@ -187,7 +187,3 @@ def test__round_robin_tell_at_load():
     del gc.garbage[:]
     assert(rr.get_state() is ActorState.TERMINATED), "Router Not Terminated"
     print("Load Testing With Tell Complete")
-
-
-if __name__ == "__main__":
-    test_round_robin_arithmetic()

@@ -11,6 +11,7 @@ import logging
 from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.errors.actor_errors import HandlerNotFoundError
 from compaktor.message.message_objects import QueryMessage, PoisonPill
+from compaktor.registry import actor_registry as registry
 from compaktor.utils.name_utils import NameCreationUtils 
 from abc import abstractmethod
 
@@ -37,7 +38,10 @@ class BaseActor(AbstractActor):
         :type inbox: asyncio.Queue()
         """
         if name is None:
-            str(NameCreationUtils.get_name_base())
+            name = str(NameCreationUtils.get_name_base())
+        if address is None:
+            address = [registry.get_registry().get_host()]
+            address.append(name)
         super().__init__(name, loop, address)
         self.__max_inbox_size = mailbox_size
         self.__inbox = inbox
@@ -47,6 +51,15 @@ class BaseActor(AbstractActor):
         self._handlers = {}
         self.register_handler(PoisonPill, self._stop_message_handler)
         self.address = address
+        if self.address:
+            if isinstance(self.address, str):
+                t_addr = [registry.get_registry().get_host()]
+                self.address = self.address.split(registry.get_registry().get_sep())
+                t_addr.extend(t_addr)
+                self.address = t_addr
+            else:
+                self.address = list(self.address)
+            registry.get_registry().add_actor(self.address[:-1], self, True)
 
     def set_address(self, address):
         self.address = address
@@ -93,6 +106,9 @@ class BaseActor(AbstractActor):
                     response = await handler(message)
                 else:
                     logging.warning("Handler is NoneType")
+                    logging.warning("Message is {}".format(str(message)))
+                    logging.warning("Message Type {}".format(str(type(message))))
+                    logging.warning("Sender {}".format(str(message.sender)))
                     self.handle_fail()
             except Exception as ex:
                 if is_query:
@@ -146,7 +162,7 @@ class BaseActor(AbstractActor):
 
     def __repr__(self, *args, **kwargs):
         """
-        Get the represenation from the AbstractoActor
+        Get the representation from the AbstractoActor
 
         :param args: list args
         :type args: list()

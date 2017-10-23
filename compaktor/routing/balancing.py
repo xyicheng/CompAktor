@@ -10,7 +10,10 @@ from compaktor.actor.base_actor import BaseActor
 from compaktor.errors.actor_errors import ActorStateError
 from compaktor.message.message_objects import RouteAsk,\
     QueryMessage, RouteBroadcast, RouteTell
+from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
+from compaktor.utils.name_utils import NameCreationUtils
+from random import random
 
 
 class BalancingRouter(BaseActor):
@@ -22,6 +25,12 @@ class BalancingRouter(BaseActor):
 
     def __init__(self, name=None, loop=None, address=None, mailbox_size=10000,
                  inbox=None, actors=[]):
+        if name is None:
+            name = NameCreationUtils.get_name_base()
+            name += "_"
+            name += str(int(random() * 1000))
+        if address is None:
+            address = name
         super().__init__(name, loop, address, mailbox_size, inbox)
         if inbox is not None:
             self.__queue = inbox
@@ -73,9 +82,13 @@ class BalancingRouter(BaseActor):
             if actor.get_state() is not ActorState.RUNNING:
                 raise ActorStateError(
                     "Actor to Add to Round Robin Router Not Working")
-    
+
             if actor not in self.actor_set:
                 self.actor_set.append(actor)
+                if self.address and actor.name:
+                    node_addr = [x for x in self.address]
+                    node_addr.append(actor.name)
+                    registry.get_registry().add_actor(node_addr, actor, True)
             actor.__inbox = self.__router_queue
             if self.sys_path is not None and self.actor_system is not None:
                 self.actor_system.add_actor(actor, self.sys_path)
