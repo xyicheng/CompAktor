@@ -47,7 +47,7 @@ class Sink(PubSub):
         if len(self.__providers) > 0:
             for provider in self.__providers:
                 asyncio.run_coroutine_threadsafe(
-                    self.tell(provider, Pull(None, self)))
+                    self.tell(provider, Pull(None, self)), self.loop)
 
     def __do_pull_tick(self):
         """

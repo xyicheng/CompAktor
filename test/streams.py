@@ -43,7 +43,7 @@ class TestStreams(unittest.TestCase):
             sn.stop())
         assert(sn.get_state() == ActorState.TERMINATED)
 
-    def test_stream_setup(self):
+    def stest_stream_setup(self):
         src = StringSource()
         src.start()
         sn = SplitNode()
@@ -55,9 +55,20 @@ class TestStreams(unittest.TestCase):
         asyncio.get_event_loop().run_until_complete(ps.stop())
         asyncio.get_event_loop().run_until_complete(sn.stop())
         asyncio.get_event_loop().run_until_complete(src.stop())
+        assert(src.get_state() == ActorState.TERMINATED)
+        assert(ps.get_state() == ActorState.TERMINATED)
+        assert(sn.get_state() == ActorState.TERMINATED)
 
     def test_stream_with_data(self):
-        pass
+        src = StringSource()
+        src.start()
+        sn = SplitNode(providers=[src])
+        sn.start()
+        ps = PrintSink(providers=[sn])
+        ps.start()
+        asyncio.get_event_loop().run_until_complete(src.stop())
+        asyncio.get_event_loop().run_until_compete(sn.stop())
+        asyncio.get_event_loop().run_until_complete(ps.stop())
 
     def test_multi_input_stream(self):
         pass

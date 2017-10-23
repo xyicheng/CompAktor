@@ -106,7 +106,7 @@ class NodePubSub(PubSub):
                 if self.__empty_logic == "broadcast":
                     for provider in self.__providers:
                         asyncio.run_coroutine_threadsafe(
-                            self.tell(provider, Pull(None, self)))
+                            self.tell(provider, Pull(None, self)), self.loop)
                 else:
                     if len(self.__providers) > i:
                         if i < len(self.__providers):
@@ -150,8 +150,7 @@ class NodePubSub(PubSub):
                                 self.__providers.remove(provider)
                     if len(self.__providers) > 0:
                         sender = self.__providers[self.__current_provider]
-                        self.loop.run_until_complete(
-                            self.tell(sender,Pull(None, sender)))
+                        await self.tell(sender,Pull(None, sender))
                         self.__current_provider += 1
                         if self.__current_provider >= len(self.__providers):
                             self.__current_provider = 0

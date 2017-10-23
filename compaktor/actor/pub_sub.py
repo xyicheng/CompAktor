@@ -40,7 +40,7 @@ class PubSub(BaseActor):
         self.register_handler(Publish, self.do_publish)
         self.register_handler(DeSubscribe, self.desubscribe)
 
-    async def subscribe(self, actor):
+    def subscribe(self, actor):
         """
         Subscribe to the pub/sub.  This will replace the subscriber queue to
         create a balancing router.
