@@ -18,7 +18,6 @@ from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.routing.round_robin import RoundRobinRouter
 from compaktor.streams.objects.stage_task_actor import TaskActor
 from compaktor.state.actor_state import ActorState
-from _datetime import timedelta
 
 
 class NodePubSub(PubSub):

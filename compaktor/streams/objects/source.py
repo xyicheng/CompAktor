@@ -88,8 +88,8 @@ class Source(PubSub):
             if isinstance(message, Pull):
                 sender = message.sender
                 result = self.on_pull()
-                if result and len(self.subscribers) > 0:
-                    out_message = Publish(result)
+                if result and sender is not None:
+                    out_message = Publish(result, self)
                     try:
                         await self.tell(sender, out_message)
                     except Exception: 

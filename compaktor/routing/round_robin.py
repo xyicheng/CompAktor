@@ -13,6 +13,7 @@ from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
 from compaktor.utils.name_utils import NameCreationUtils
 from random import random
+import pdb
 
 class RoundRobinRouter(BaseActor):
     """
@@ -124,12 +125,11 @@ class RoundRobinRouter(BaseActor):
             sender = self
             if message.sender is not None:
                 sender = message.sender
-    
-            ind = self.current_index.get() 
+            ind = self.current_index.get()
             if self.actor_set and len(self.actor_set) > 0:          
-                fut = asnycio.run_coroutine_threadsafe(
+                fut = asyncio.run_coroutine_threadsafe(
                     sender.tell(self.actor_set[ind % len(self.actor_set)],
-                                message.payload))
+                                message.payload), sender.loop)
                 fut.result(timeout=15)
                 self.current_index.get_and_add(1)
             if self.current_index.get() is len(self.actor_set):

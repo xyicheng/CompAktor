@@ -7,6 +7,7 @@ Created on Oct 12, 2017
 import asyncio
 from compaktor.actor.base_actor import BaseActor
 from compaktor.message.message_objects import Message, TaskMessage
+import pdb
 
 
 class TaskActor(BaseActor):
@@ -46,6 +47,7 @@ class TaskActor(BaseActor):
         :type message: Message()
         """
         try:
+            pdb.set_trace()
             payload = message.payload
             if isinstance(payload, Message):
                 sender = message.sender

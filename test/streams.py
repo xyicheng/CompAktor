@@ -67,20 +67,28 @@ class TestStreams(unittest.TestCase):
         ps = PrintSink(providers=[sn])
         ps.start()
         asyncio.get_event_loop().run_until_complete(src.stop())
-        asyncio.get_event_loop().run_until_compete(sn.stop())
+        asyncio.get_event_loop().run_until_complete(sn.stop())
         asyncio.get_event_loop().run_until_complete(ps.stop())
+        asyncio.get_event_loop().run_forever()
 
-    def test_multi_input_stream(self):
+    def stest_multi_input_stream(self):
         pass
 
-    def test_split_stream(self):
+    def stest_split_stream(self):
         pass
 
-    def test_multi_sink_stream(self):
+    def stest_multi_sink_stream(self):
         pass
 
-    def test_multi_source_stream(self):
+    def stest_multi_source_stream(self):
         pass
+
+    def stest_queu_sink(self):
+        pass
+
+    def stest_multi_queue_sink(self):
+        pass
+
 
 if __name__ == "__main__":
     unittest.main()
