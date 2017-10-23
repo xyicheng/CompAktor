@@ -19,9 +19,10 @@ Aioprocessing will be examined and implemented to help alleviate some issues as 
 Microservices, large tasks that can be run well in a subprocess and other functions that block will perform well at the moment. This may violate some of the basic actor principals (one function per actor) but works better in this case.
 
 Tasks that work well include:
- - micro-sevices architectures with large blocking calls such as calls to a Spark process
+ - micro-sevices architectures with large blocking calls such as calls to a Spark process executed in an Process Pool
  - programs requiring large amounts of network calls
- - non-blocking streaming of data from devices
+ - non-blocking streaming of data from devices and ETL
+ - video feed and non-traditional data streams
 
 Perhaps the GIL will disappear in the future and we can implement 1 event loop per actor. Until then, these are the best use cases for this project. Remember GIL sucks. He'll promise concurrency but its a bit of an illusion.
 
@@ -35,7 +36,7 @@ Initial features will include:
 - Round Robin Router
 - Random Router
 - Balancing Router
-- Flows
+- Streams and graph computation
 - Threadsafe async boundaries inside flows (may be slower than we want)
 - Multi-processing and thread pools for actor tasks (that way we have non-blocking concurrent tasks)
 - Many of the features available in the original actor components in Akka
@@ -49,19 +50,15 @@ We are currently implementing:
 
 - Health Checking (in test)
 - Dead Letter Handling (starting dev)
-- Streams (implementing in the use cases section)
-- Failure Handler Strategies (one for one replacement and removal with the latter already happening) 
+- Failure Handler Strategies (one for one replacement and removal) 
 
-I would say the biggest to dos at the moment are replacing the janus queue in the balancing routher,failure handling, health checking, and dead letter handling in that order.
-Streams will develop through the use cases. 
+I would say the biggest to dos at the moment are replacing failure handling, health checking, and dead letter handling in that order.
 
 Our test cases and use cases are available to help deepen an und
 
 Feature Wish List (next round of stuff from the backlog):
 
 - Remote Actors
-- Stream Sources and Sinks
-- Graph Stages
 - Clustered Actors
 - More advanced routing techniques
 
