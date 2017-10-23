@@ -47,13 +47,12 @@ class TaskActor(BaseActor):
         :type message: Message()
         """
         try:
-            pdb.set_trace()
             payload = message.payload
             if isinstance(payload, Message):
                 sender = message.sender
                 if sender is None:
                     raise ValueError("Sender is None")
-                result = await self.__on_call()
+                result = await self.__on_call(payload)
                 await self.tell(sender, TaskMessage(result, sender))
         except Exception as e:
             self.handle_fail()

@@ -126,11 +126,9 @@ class RoundRobinRouter(BaseActor):
             if message.sender is not None:
                 sender = message.sender
             ind = self.current_index.get()
-            if self.actor_set and len(self.actor_set) > 0:          
-                fut = asyncio.run_coroutine_threadsafe(
-                    sender.tell(self.actor_set[ind % len(self.actor_set)],
-                                message.payload), sender.loop)
-                fut.result(timeout=15)
+            if self.actor_set and len(self.actor_set) > 0:
+                actor = self.actor_set[ind % len(self.actor_set)]
+                await sender.tell(actor, message.payload)
                 self.current_index.get_and_add(1)
             if self.current_index.get() is len(self.actor_set):
                 self.current_index.get_and_set(0)

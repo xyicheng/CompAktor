@@ -37,6 +37,10 @@ class TaskMessage(Message):
     pass
 
 
+class Push(Message):
+    pass
+
+
 class PullTick(Message):
     pass
 

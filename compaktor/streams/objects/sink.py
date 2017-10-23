@@ -11,8 +11,6 @@ from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Pull, Publish
 from abc import abstractmethod
 from multiprocessing import cpu_count
-import pdb
-
 
 class Sink(PubSub):
     """

@@ -66,9 +66,6 @@ class TestStreams(unittest.TestCase):
         sn.start()
         ps = PrintSink(providers=[sn])
         ps.start()
-        asyncio.get_event_loop().run_until_complete(src.stop())
-        asyncio.get_event_loop().run_until_complete(sn.stop())
-        asyncio.get_event_loop().run_until_complete(ps.stop())
         asyncio.get_event_loop().run_forever()
 
     def stest_multi_input_stream(self):

@@ -6,18 +6,19 @@ Created on Oct 7, 2017
 '''
 
 import asyncio
-from datetime import datetime
 import logging
 from multiprocessing import cpu_count
 from queue import Queue as PyQueue
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Publish, Pull,\
                                                 DeSubscribe, Subscribe,\
-                                                TaskMessage, Tick
+                                                TaskMessage, Tick, Push,\
+    RouteTell
 from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.routing.round_robin import RoundRobinRouter
 from compaktor.streams.objects.stage_task_actor import TaskActor
 from compaktor.state.actor_state import ActorState
+import pdb
 
 
 class NodePubSub(PubSub):
@@ -68,8 +69,9 @@ class NodePubSub(PubSub):
         """
         Set the handlers for the actor
         """
-        self.register_handler(Publish, self.pull)
-        self.register_handler(Pull, self.push)
+        self.register_handler(Publish, self.__push)
+        self.register_handler(Push, self.__push)
+        self.register_handler(Pull, self.__pull)
         self.register_handler(Tick, self.__do_pull_tick)
         self.register_handler(DeSubscribe, self.__de_subscribe_upstream)
         self.register_handler(Subscribe, self.__subscribe_upstream)
@@ -84,6 +86,7 @@ class NodePubSub(PubSub):
         """
         if self.router is None:
             self.router = RoundRobinRouter()
+            self.router.start()
             for i in range(0, concurrency):
                 try:
                     pyname = __name__
@@ -139,6 +142,9 @@ class NodePubSub(PubSub):
     async def __do_pull_tick(self, message=None):
         """
         Do a pull tick
+
+        :param message: The message for the pull tick
+        :type message: Message()
         """
         try:
             if self.__task_q.full() is False:
@@ -149,7 +155,7 @@ class NodePubSub(PubSub):
                                 self.__providers.remove(provider)
                     if len(self.__providers) > 0:
                         sender = self.__providers[self.__current_provider]
-                        await self.tell(sender,Pull(None, sender))
+                        await self.tell(sender,Pull(None, self))
                         self.__current_provider += 1
                         if self.__current_provider >= len(self.__providers):
                             self.__current_provider = 0
@@ -215,7 +221,7 @@ class NodePubSub(PubSub):
         except Exception:
             self.handle_fail()
 
-    async def pull(self, message):
+    async def __pull(self, message):
         """
         The pull message.
 
@@ -228,29 +234,15 @@ class NodePubSub(PubSub):
                     self.run_on_empty()
                 task = self.__task_q.get()
                 if task:
-                    sender = message.sender
-                    result = None
-                    if self.__result_q.empty() is False:
-                        try:
-                            result = self.__result_q.get_nowait()
-                        except Exception as e:
-                            pass                        
-                    
-                    if result and self.__result_q.full() is False:
-                        await self.tell(self.router, TaskMessage(message))
-
-                    await self.__signal_provider()
-
-                    if result is not None:
-                        sender = message.sender
-                        msg = Publish(result, self)
-                        await self.tell(sender, msg)
+                    await self.tell(
+                        self.router, RouteTell(TaskMessage(task, message.sender)))
+                await self.__signal_provider()
         except Exception:
             self.handle_fail()
 
     async def __signal_provider(self):
         try:
-            prov = self.providers[self.__current_provider]
+            prov = self.__providers[self.__current_provider]
             await self.tell(prov, Pull(None, self))
         except Exception as e:
             self.handle_fail()
@@ -265,9 +257,9 @@ class NodePubSub(PubSub):
         logging.error("Should Override Push Function")
         return None
 
-    async def push(self, message):
+    async def __push(self, message):
         """
         The push function.
         """
         if isinstance(message, Publish):
-            self.__task_q.put_nowait(message)
+            self.__task_q.put_nowait(message.payload)

@@ -27,6 +27,7 @@ class SplitNode(NodePubSub):
         super().__init__("SplitNode", providers)
 
     def on_pull(self, message):
+        print("Splitting {}".format(type(message)))
         payload = str(message.payload)
         return payload.split(" ")
 
