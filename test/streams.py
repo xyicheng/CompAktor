@@ -52,8 +52,24 @@ class TestStreams(unittest.TestCase):
         ps.start()
         asyncio.get_event_loop().run_until_complete(src.subscribe(sn))
         asyncio.get_event_loop().run_until_complete(sn.subscribe(ps))
-        asyncio.get_event_loop().run_forever()
+        asyncio.get_event_loop().run_until_complete(ps.stop())
+        asyncio.get_event_loop().run_until_complete(sn.stop())
+        asyncio.get_event_loop().run_until_complete(src.stop())
 
+    def test_stream_with_data(self):
+        pass
+
+    def test_multi_input_stream(self):
+        pass
+
+    def test_split_stream(self):
+        pass
+
+    def test_multi_sink_stream(self):
+        pass
+
+    def test_multi_source_stream(self):
+        pass
 
 if __name__ == "__main__":
     unittest.main()
