@@ -8,9 +8,10 @@ Created on Oct 7, 2017
 import asyncio
 import logging
 from compaktor.actor.pub_sub import PubSub
-from compaktor.message.message_objects import Pull, Publish
+from compaktor.message.message_objects import Pull, Publish, Push, Message
 from abc import abstractmethod
 from multiprocessing import cpu_count
+import pdb
 
 class Sink(PubSub):
     """
@@ -37,6 +38,7 @@ class Sink(PubSub):
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.register_handler(Publish, self.__push)
+        self.register_handler(Push, self.__push)
         self.__providers = providers
         self.__concurrency = concurrency
 
@@ -78,7 +80,7 @@ class Sink(PubSub):
         :type message: Message()
         """
         try:
-            if isinstance(message, Publish):
+            if isinstance(message, Message):
                 sender = message.sender
                 self.on_push(message)
                 if sender:

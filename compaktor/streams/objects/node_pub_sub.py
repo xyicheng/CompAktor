@@ -229,6 +229,7 @@ class NodePubSub(PubSub):
         :type message: Pull()
         """
         try:
+            await self.__signal_provider()
             if isinstance(message, Pull):
                 if self.__task_q.empty():
                     self.run_on_empty()
@@ -237,8 +238,7 @@ class NodePubSub(PubSub):
                     if isinstance(task, Push):
                         task = task.payload
                     await self.tell(
-                        self.router, RouteTell(TaskMessage(task, message.sender)))
-                await self.__signal_provider()
+                        self.router, RouteTell(TaskMessage(task, message.sender, self)))
         except Exception:
             self.handle_fail()
 

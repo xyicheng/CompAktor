@@ -10,6 +10,7 @@ from test.modules.streams.objects import StringSource, SplitNode, PrintSink
 from compaktor.message.message_objects import PullQuery, Publish
 from compaktor.state.actor_state import ActorState
 from compaktor.streams.objects.node_pub_sub import NodePubSub
+from reportlab.pdfbase.pdfdoc import teststream
 
 class TestStreams(unittest.TestCase):
 
@@ -62,14 +63,13 @@ class TestStreams(unittest.TestCase):
     def test_stream_with_data(self):
         src = StringSource()
         src.start()
-        sn = SplitNode(providers=[src])
+        srcb = StringSource(2)
+        srcb.start()
+        sn = SplitNode(providers=[src, srcb])
         sn.start()
         ps = PrintSink(providers=[sn])
         ps.start()
         asyncio.get_event_loop().run_forever()
-
-    def stest_multi_input_stream(self):
-        pass
 
     def stest_split_stream(self):
         pass
@@ -86,6 +86,11 @@ class TestStreams(unittest.TestCase):
     def stest_multi_queue_sink(self):
         pass
 
+    def stest_multi_loop(self):
+        pass
+
 
 if __name__ == "__main__":
-    unittest.main()
+    # unittest.main()
+    t = TestStreams()
+    t.test_stream_with_data()
