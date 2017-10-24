@@ -179,3 +179,6 @@ class RoundRobinRouter(BaseActor):
         for actor in self.actor_set:
             fut = asyncio.run_coroutine_threadsafe(
                 sender.tell(actor, message), self.loop)
+            rfuncs.append(fut)
+        for func in rfuncs:
+            func.result(15)

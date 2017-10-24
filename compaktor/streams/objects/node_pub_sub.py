@@ -234,6 +234,8 @@ class NodePubSub(PubSub):
                     self.run_on_empty()
                 task = self.__task_q.get()
                 if task:
+                    if isinstance(task, Push):
+                        task = task.payload
                     await self.tell(
                         self.router, RouteTell(TaskMessage(task, message.sender)))
                 await self.__signal_provider()

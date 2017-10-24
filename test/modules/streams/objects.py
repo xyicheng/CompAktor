@@ -26,10 +26,9 @@ class SplitNode(NodePubSub):
     def __init__(self, providers=[]):
         super().__init__("SplitNode", providers)
 
-    def on_pull(self, message):
+    async def on_pull(self, message):
         print("Splitting {}".format(type(message)))
-        payload = str(message.payload)
-        return payload.split(" ")
+        return message.split(" ")
 
 class PrintSink(Sink):
 

@@ -47,12 +47,11 @@ class TaskActor(BaseActor):
         :type message: Message()
         """
         try:
-            payload = message.payload
-            if isinstance(payload, Message):
+            if isinstance(message, Message):
                 sender = message.sender
                 if sender is None:
                     raise ValueError("Sender is None")
-                result = await self.__on_call(payload)
+                result = await self.__on_call(message.payload)
                 await self.tell(sender, TaskMessage(result, sender))
         except Exception as e:
             self.handle_fail()
