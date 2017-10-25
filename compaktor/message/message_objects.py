@@ -34,6 +34,13 @@ class Message(object):
 
 
 class TaskMessage(Message):
+
+    def __init__(self, payload, sender, caller):
+        super().__init__(payload, sender)
+        self.caller = caller
+
+
+class Push(Message):
     pass
 
 

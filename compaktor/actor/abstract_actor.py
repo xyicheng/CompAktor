@@ -152,7 +152,15 @@ class AbstractActor(object):
             if isinstance(target, str):
                 target = registry.get_registry().find_node(target)
             if target:
-                await target._receive(message)
+                if target.loop == self.loop:
+                    await target._receive(message)
+                else:
+                    #redirect since it is from a different loop
+                    print(type(message))
+                    print(target)
+                    print(message.sender)
+                    asyncio.run_coroutine_threadsafe(
+                        target._receive(message), loop=target.loop)
             else:
                 print("Target Does Not Exist")
         except AttributeError as ex:
@@ -171,9 +179,13 @@ class AbstractActor(object):
         try:
             assert isinstance(message, QueryMessage)
             if not message.result:
-                message.result = asyncio.Future(loop=self.loop)
-            asyncio.run_coroutine_threadsafe(self.tell(target, message),self.loop)
-            res = await message.result
+                message.result = asyncio.Future(loop=target.loop)
+            await self.tell(target, message)
+            res = None
+            if target.loop == self.loop:
+                res = await message.result
+            else:
+                res = target.loop.run_until_complete(message.result)
             return res
         except Exception:
             self.handle_fail()

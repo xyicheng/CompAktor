@@ -13,7 +13,7 @@ from janus import Queue as SafeQ
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Publish, Pull,\
                                                 DeSubscribe, Subscribe,\
-    TaskMessage
+    TaskMessage, Push
 from compaktor.actor.abstract_actor import AbstractActor
 from abc import abstractmethod
 from compaktor.streams.objects.stage_task_actor import TaskActor
@@ -74,8 +74,9 @@ class BalancingPubSub(PubSub):
         """
         Set the node handlers
         """
-        self.register_handler(Publish, self.__pull)
-        self.register_handler(Pull, self.__push) 
+        self.register_handler(Publish, self.__push)
+        self.register_handler(Push, self.__push)
+        self.register_handler(Pull, self.__pull) 
         self.register_handler(DeSubscribe, self.__de_subscribe_upstream)
         self.register_handler(Subscribe, self.__subscribe_upstream)
         self.register_handler(TaskMessage, self.__append_result)

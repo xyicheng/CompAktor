@@ -6,10 +6,13 @@ Created on Oct 19, 2017
 
 import unittest
 import asyncio
-from test.modules.streams.objects import StringSource, SplitNode, PrintSink
+from test.modules.streams.objects import StringSource, SplitNode, PrintSink,\
+    LargeStringSource
 from compaktor.message.message_objects import PullQuery, Publish
 from compaktor.state.actor_state import ActorState
 from compaktor.streams.objects.node_pub_sub import NodePubSub
+from reportlab.pdfbase.pdfdoc import teststream
+import pdb
 
 class TestStreams(unittest.TestCase):
 
@@ -43,7 +46,7 @@ class TestStreams(unittest.TestCase):
             sn.stop())
         assert(sn.get_state() == ActorState.TERMINATED)
 
-    def test_stream_setup(self):
+    def stest_stream_setup(self):
         src = StringSource()
         src.start()
         sn = SplitNode()
@@ -52,7 +55,43 @@ class TestStreams(unittest.TestCase):
         ps.start()
         asyncio.get_event_loop().run_until_complete(src.subscribe(sn))
         asyncio.get_event_loop().run_until_complete(sn.subscribe(ps))
+        asyncio.get_event_loop().run_until_complete(ps.stop())
+        asyncio.get_event_loop().run_until_complete(sn.stop())
+        asyncio.get_event_loop().run_until_complete(src.stop())
+        assert(src.get_state() == ActorState.TERMINATED)
+        assert(ps.get_state() == ActorState.TERMINATED)
+        assert(sn.get_state() == ActorState.TERMINATED)
+
+    def test_stream_with_data(self):
+        src_loop = asyncio.get_event_loop()
+        src = StringSource(loop=src_loop)
+        src.start()
+        #srcb = LargeStringSource(2, loop=src_loop)
+        #srcb.start()
+        split_loop = asyncio.get_event_loop()
+        sn = SplitNode(providers=[src], loop=split_loop)
+        sn.start()
+        ps = PrintSink(providers=[sn])
+        ps.start()
         asyncio.get_event_loop().run_forever()
+
+    def stest_split_stream(self):
+        pass
+
+    def stest_multi_sink_stream(self):
+        pass
+
+    def stest_multi_source_stream(self):
+        pass
+
+    def stest_queu_sink(self):
+        pass
+
+    def stest_multi_queue_sink(self):
+        pass
+
+    def stest_multi_loop(self):
+        pass
 
 
 if __name__ == "__main__":

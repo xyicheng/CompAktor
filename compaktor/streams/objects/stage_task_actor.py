@@ -6,7 +6,8 @@ Created on Oct 12, 2017
 
 import asyncio
 from compaktor.actor.base_actor import BaseActor
-from compaktor.message.message_objects import Message, TaskMessage
+from compaktor.message.message_objects import Message, TaskMessage, Push
+import pdb
 
 
 class TaskActor(BaseActor):
@@ -46,12 +47,12 @@ class TaskActor(BaseActor):
         :type message: Message()
         """
         try:
-            payload = message.payload
-            if isinstance(payload, Message):
+            if isinstance(message, Message):
                 sender = message.sender
+                caller = message.caller
                 if sender is None:
                     raise ValueError("Sender is None")
-                result = await self.__on_call()
-                await self.tell(sender, TaskMessage(result, sender))
+                result = await self.__on_call(message.payload)
+                await self.tell(sender, Push(result, caller))
         except Exception as e:
             self.handle_fail()

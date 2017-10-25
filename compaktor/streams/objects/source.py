@@ -10,7 +10,7 @@ import logging
 from multiprocessing import cpu_count
 from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Pull, Subscribe, DeSubscribe,\
-    Publish, PullQuery
+    Publish, PullQuery, Push
 from abc import abstractmethod
 import pdb
 
@@ -88,8 +88,8 @@ class Source(PubSub):
             if isinstance(message, Pull):
                 sender = message.sender
                 result = self.on_pull()
-                if result and len(self.subscribers) > 0:
-                    out_message = Publish(result)
+                if result and sender is not None:
+                    out_message = Publish(Push(result, self), self)
                     try:
                         await self.tell(sender, out_message)
                     except Exception: 
@@ -114,24 +114,7 @@ class Source(PubSub):
         logging.error("On Complete Not Overridden")
 
     def start(self):
+        """
+        Potentially override the start method.
+        """
         super().start()
-        if len(self.subscribers) > 0:
-            for i in range(0, self.__tasks):
-                if i < len(self.subscribers):
-                    res = self.on_pull()
-                    message = Publish(res, self)
-                    if self.routing_logic.lower().strip() == "round_robin":
-                        sub = self.subscribers[self.current_index]
-                        asyncio.run_coroutine_threadsafe(
-                            self.tell(sub, message))
-                        self.current_index += 1
-                        if self.current_index is len(self.subscribers):
-                            self.current_index = 0
-                    elif self.routing_logic.lower().strip() == "broadcast":
-                        for sub in self.subscribers:
-                            asyncio.run_coroutine_threadsafe(
-                                self.tell(sub, message))
-                    else:
-                        err_msg = "Source only allows round_robin or braodcast"
-                        err_msg += " routing logic"
-                        logging.error(err_msg)

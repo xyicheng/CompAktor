@@ -62,9 +62,21 @@ class BaseActor(AbstractActor):
             registry.get_registry().add_actor(self.address[:-1], self, True)
 
     def set_address(self, address):
+        """
+        Set the address
+
+        :param address: The address to set
+        :type address: str()
+        """
         self.address = address
 
     def get_address(self):
+        """
+        Return the address
+
+        :return: The address
+        :rtype: str()
+        """
         return self.address
 
     def get_name(self):
