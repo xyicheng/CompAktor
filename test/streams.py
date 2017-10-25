@@ -63,17 +63,17 @@ class TestStreams(unittest.TestCase):
         assert(sn.get_state() == ActorState.TERMINATED)
 
     def test_stream_with_data(self):
-        src_loop = asyncio.get_event_loop()
+        src_loop = asyncio.new_event_loop()
         src = StringSource(loop=src_loop)
         src.start()
         #srcb = LargeStringSource(2, loop=src_loop)
         #srcb.start()
-        split_loop = asyncio.get_event_loop()
+        split_loop = asyncio.new_event_loop()
         sn = SplitNode(providers=[src], loop=split_loop)
         sn.start()
         ps = PrintSink(providers=[sn])
         ps.start()
-        asyncio.get_event_loop().run_forever()
+        asyncio.new_event_loop().run_forever()
 
     def stest_split_stream(self):
         pass

@@ -98,7 +98,7 @@ class NodePubSub(PubSub):
                 except Exception:
                     self.handle_fail()
 
-    def start(self):
+    def start(self, start_loop=asyncio.get_event_loop()):
         """
         Start the actor  
         """
@@ -107,7 +107,7 @@ class NodePubSub(PubSub):
             for i in range(0, self.__concurrency):
                 if self.__empty_logic == "broadcast":
                     for provider in self.__providers:
-                        self.loop.run_until_complete(
+                        start_loop.run_until_complete(
                             self.tell(provider, Pull(None, self)))
                 else:
                     if len(self.__providers) > i:
@@ -116,7 +116,7 @@ class NodePubSub(PubSub):
                             if self.__current_provider >= lprv:
                                 self.__current_provider = 0
                             prov = self.__providers[self.__current_provider]
-                            self.loop.run_until_complete(
+                            start_loop.run_until_complete(
                                 self.tell(prov, Pull(None, self)))
                             self.__current_provider += 1
 
@@ -252,7 +252,7 @@ class NodePubSub(PubSub):
         try:
             prov = self.__providers[self.__current_provider]
             await self.tell(prov, Pull(None, self))
-        except Exception as e:
+        except Exception:
             self.handle_fail()
         self.__current_provider += 1
         if self.__current_provider >= len(self.__providers):

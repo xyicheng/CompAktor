@@ -89,10 +89,12 @@ class Source(PubSub):
                 sender = message.sender
                 result = self.on_pull()
                 if result and sender is not None:
-                    out_message = Publish(Push(result, self), self)
+                    out_message = Publish(
+                        Push(result, self), self)
                     try:
-                        await self.tell(sender, out_message)
-                    except Exception: 
+                        asyncio.run_coroutine_threadsafe(
+                            sender.tell(sender, message), sender.loop)
+                    except Exception:
                         self.handle_fail()
         except Exception:
             self.handle_fail()

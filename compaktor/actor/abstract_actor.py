@@ -157,10 +157,8 @@ class AbstractActor(object):
                 else:
                     #redirect since it is from a different loop
                     print(type(message))
-                    print(target)
-                    print(message.sender)
-                    asyncio.run_coroutine_threadsafe(
-                        target._receive(message), loop=target.loop)
+                    target.loop.run_until_complete(
+                        target._receive(message))
             else:
                 print("Target Does Not Exist")
         except AttributeError as ex:

@@ -7,7 +7,6 @@ Created on Oct 12, 2017
 import asyncio
 from compaktor.actor.base_actor import BaseActor
 from compaktor.message.message_objects import Message, TaskMessage, Push
-import pdb
 
 
 class TaskActor(BaseActor):
