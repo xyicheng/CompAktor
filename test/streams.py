@@ -6,11 +6,13 @@ Created on Oct 19, 2017
 
 import unittest
 import asyncio
-from test.modules.streams.objects import StringSource, SplitNode, PrintSink
+from test.modules.streams.objects import StringSource, SplitNode, PrintSink,\
+    LargeStringSource
 from compaktor.message.message_objects import PullQuery, Publish
 from compaktor.state.actor_state import ActorState
 from compaktor.streams.objects.node_pub_sub import NodePubSub
 from reportlab.pdfbase.pdfdoc import teststream
+import pdb
 
 class TestStreams(unittest.TestCase):
 
@@ -61,11 +63,13 @@ class TestStreams(unittest.TestCase):
         assert(sn.get_state() == ActorState.TERMINATED)
 
     def test_stream_with_data(self):
-        src = StringSource()
+        src_loop = asyncio.new_event_loop()
+        src = StringSource(loop=src_loop)
         src.start()
-        srcb = StringSource(2)
-        srcb.start()
-        sn = SplitNode(providers=[src, srcb])
+        #srcb = LargeStringSource(2, loop=src_loop)
+        #srcb.start()
+        split_loop = asyncio.new_event_loop()
+        sn = SplitNode(providers=[src], loop=split_loop)
         sn.start()
         ps = PrintSink(providers=[sn])
         ps.start()
@@ -91,6 +95,4 @@ class TestStreams(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # unittest.main()
-    t = TestStreams()
-    t.test_stream_with_data()
+    unittest.main()

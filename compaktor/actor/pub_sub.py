@@ -29,7 +29,7 @@ class PubSub(BaseActor):
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
         self._subscription_router = RoundRobinRouter()
-        
+
         if self._subscription_router.get_state() is ActorState.LIMBO:
             self._subscription_router.start()
 

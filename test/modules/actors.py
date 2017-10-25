@@ -31,18 +31,18 @@ class ObjectTestActor(BaseActor):
         super().__init__(*args, **kwargs)
         self.register_handler(ObjectMessage, self.print_status)
 
-    def print_status(self, message):
+    async def print_status(self, message):
         print("Received Payload")
         print(message.__repr__())
 
 
 class StringTestActor(BaseActor):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, name="StringTest", loop=asyncio.get_event_loop(), address=None):
+        super().__init__(name, loop, address)
         self.register_handler(StringMessage, self.print_status)
 
-    def print_status(self, message):
+    async def print_status(self, message):
         print(message.payload)
 
 

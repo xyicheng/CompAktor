@@ -13,7 +13,7 @@ from compaktor.actor.pub_sub import PubSub
 from compaktor.message.message_objects import Publish, Pull,\
                                                 DeSubscribe, Subscribe,\
                                                 TaskMessage, Tick, Push,\
-    RouteTell
+                                                RouteTell
 from compaktor.actor.abstract_actor import AbstractActor
 from compaktor.routing.round_robin import RoundRobinRouter
 from compaktor.streams.objects.stage_task_actor import TaskActor
@@ -107,8 +107,8 @@ class NodePubSub(PubSub):
             for i in range(0, self.__concurrency):
                 if self.__empty_logic == "broadcast":
                     for provider in self.__providers:
-                        asyncio.run_coroutine_threadsafe(
-                            self.tell(provider, Pull(None, self)), self.loop)
+                        self.loop.run_until_complete(
+                            self.tell(provider, Pull(None, self)))
                 else:
                     if len(self.__providers) > i:
                         if i < len(self.__providers):
@@ -116,7 +116,7 @@ class NodePubSub(PubSub):
                             if self.__current_provider >= lprv:
                                 self.__current_provider = 0
                             prov = self.__providers[self.__current_provider]
-                            asyncio.run_coroutine_threadsafe(
+                            self.loop.run_until_complete(
                                 self.tell(prov, Pull(None, self)))
                             self.__current_provider += 1
 
@@ -172,6 +172,9 @@ class NodePubSub(PubSub):
             self.handle_fail()
 
     def __pull_tick(self):
+        """
+        Perform a periodic pull.
+        """
         self.loop.run_until_complete(self.__do_pull_tick())
 
     async def __subscribe_upstream(self, message):
@@ -243,6 +246,9 @@ class NodePubSub(PubSub):
             self.handle_fail()
 
     async def __signal_provider(self):
+        """
+        Signal the provider.
+        """
         try:
             prov = self.__providers[self.__current_provider]
             await self.tell(prov, Pull(None, self))
