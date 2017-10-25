@@ -11,16 +11,11 @@ Visit our Wordpress site (https://compaktor.wordpress.com/).
 # Workig with the Repository
 
 Before working with a branch, make sure to pull in a branch from the next level up in the hierarchy:
-
-<div style="text-align:center">
- master
- |
- |
- development
- |
- |
- testing streams registry actor
-</div>
+                                            master
+                                              >
+                                              Developemnt
+                                                   >
+                                                   testing, streams, actor, registry
 
 Ingestion and ETL are being split to separate projects so please ignore these branches. Thanks.
 
