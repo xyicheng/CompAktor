@@ -8,6 +8,22 @@ Join us on Slack (https://join.slack.com/t/compaktor/signup).
 
 Visit our Wordpress site (https://compaktor.wordpress.com/).
 
+# Workig with the Repository
+
+Before working with a branch, make sure to pull in a branch from the next level up in the hierarchy:
+
+<center>
+ master
+ |
+ |
+ development
+ |
+ |
+ testing streams registry actor
+<center>
+
+Ingestion and ETL are being split to separate projects so please ignore these branches. Thanks.
+
 # Achieving Concurrency
 
 Asyncio allows a running task to yield time to other tasks. However, it is not truly parallelism. For this reason, CompAktor's plumbing is mainly for messaging and really small tasks. It is best to combine CompAktor processes and other threads (not really the latter) to achieve multi-core concurrency. However, the tool achieves work sharing on a single core which may be beneficial for other reasons. It is recommended to use the Flows library as threads can be used per event loop and boundaries established. Again, due to the GIL this may still not be ideal. 
