@@ -20,7 +20,7 @@ Before working with a branch, make sure to pull in a branch from the next level 
  |
  |
  testing streams registry actor
-<center>
+</center>
 
 Ingestion and ETL are being split to separate projects so please ignore these branches. Thanks.
 
