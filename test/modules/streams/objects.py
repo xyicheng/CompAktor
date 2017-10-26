@@ -8,9 +8,6 @@ import asyncio
 from compaktor.streams.objects.node_pub_sub import NodePubSub
 from compaktor.streams.objects.source import Source
 from compaktor.streams.objects.sink import Sink
-from abc import abstractmethod
-from compaktor.multiprocessing import pool
-from compaktor.multiprocessing.pool import multiprocessing_pool
 import pdb
 
 
@@ -21,7 +18,6 @@ class StringSource(Source):
         self.__iteration = 0
         self.src_num = src_num
 
-    @abstractmethod
     def on_pull(self):
         print("Pulling")
         self.__iteration += 1
@@ -43,7 +39,6 @@ class LargeStringSource(Source):
         Sed laoreet vitae ligula id imperdiet. Duis sed purus sed augue scelerisque volutpat ac non leo. Integer feugiat velit in augue pulvinar, nec sodales est convallis. In aliquet commodo orci vel ullamcorper. Praesent feugiat volutpat faucibus. Proin eleifend consequat massa, eget pulvinar neque. Maecenas nec egestas nibh, eu facilisis quam. Quisque id mi ipsum. Curabitur efficitur viverra nulla, ac aliquam ante luctus vel. Fusce vehicula nulla et tempor elementum. Morbi auctor fringilla urna, ac volutpat sem lobortis et. Curabitur et euismod tellus, non molestie dolor. Curabitur ac ultricies augue. Donec molestie purus id leo sodales finibus ut sit amet turpis. Vivamus eleifend auctor. 
         """
 
-    @abstractmethod
     def on_pull(self):
         print("Large Pull")
         self.__iteration -= 1
@@ -52,8 +47,8 @@ class LargeStringSource(Source):
         
 class SplitNode(NodePubSub):
 
-    def __init__(self, providers=[], loop=asyncio.get_event_loop()):
-        super().__init__("SplitNode", providers,loop=loop)
+    def __init__(self, name="SplitNode", loop=asyncio.get_event_loop()):
+        super().__init__(name, loop=loop)
 
     async def on_pull(self, message):
         print("Splitting {}".format(type(message)))
@@ -61,9 +56,8 @@ class SplitNode(NodePubSub):
 
 class PrintSink(Sink):
 
-    def __init__(self, providers=[]):
-        super().__init__("PrintSink", providers)
+    def __init__(self, name="PrintSink",loop=asyncio.get_event_loop()):
+        super().__init__(name=name, loop=loop)
 
-    @abstractmethod
     def on_push(self, message):
         print(message.payload)

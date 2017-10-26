@@ -12,6 +12,7 @@ from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
 from compaktor.message.message_objects import QueryMessage
 import pdb
+from pdb import Pdb
 
 
 class AbstractActor(object):
@@ -149,7 +150,6 @@ class AbstractActor(object):
         :type message:  Message()
         """
         try:
-            print(type(message))
             if isinstance(target, str):
                 target = registry.get_registry().find_node(target)
             if target:

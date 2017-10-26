@@ -49,7 +49,7 @@ class BaseActor(AbstractActor):
             self.__inbox = asyncio.Queue(
                 maxsize=self.__max_inbox_size, loop=self.loop)
         self._handlers = {}
-        self.register_handler(PoisonPill, self._stop_message_handler)
+        self.register_handlers()
         self.address = address
         if self.address:
             if isinstance(self.address, str):
@@ -60,6 +60,12 @@ class BaseActor(AbstractActor):
             else:
                 self.address = list(self.address)
             registry.get_registry().add_actor(self.address[:-1], self, True)
+
+    def register_handlers(self):
+        """
+        Register a set of handlers for the actor
+        """
+        self.register_handler(PoisonPill, self._stop_message_handler)
 
     def set_address(self, address):
         """
