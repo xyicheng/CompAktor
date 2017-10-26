@@ -94,6 +94,29 @@ class TestStreamObjects(unittest.TestCase):
         assert(node.get_state() == ActorState.TERMINATED)
         assert(ps.get_state() == ActorState.TERMINATED)
 
+    def test_soruce_node_sink_multi_loop_connection(self):
+        src_loop = asyncio.new_event_loop()
+        src = StringSource("src", loop=src_loop)
+        src.start()
+        node_loop = asyncio.new_event_loop()
+        node = SplitNode("split_node", loop=node_loop)
+        node.add_source(src)
+        node.start()
+        ps_loop = asyncio.new_event_loop()
+        ps = PrintSink("print_sink", loop=ps_loop)
+        ps.add_source(node)
+        ps.start()
+        print("Stopping Source")
+        src.loop.run_until_complete(src.stop())
+        print("Stopping Node")
+        node.loop.run_until_complete(node.stop())
+        print("Stopping Sink")
+        ps.loop.run_until_complete(ps.stop())
+        print("Checking States")
+        assert(node.get_state() == ActorState.TERMINATED)
+        assert(ps.get_state() == ActorState.TERMINATED)
+        assert(src.get_state() == ActorState.TERMINATED)
+
 
 if __name__ == "__main__":
     unittest.main()
