@@ -149,6 +149,7 @@ class AbstractActor(object):
         :type message:  Message()
         """
         try:
+            print(type(message))
             if isinstance(target, str):
                 target = registry.get_registry().find_node(target)
             if target:
@@ -156,7 +157,6 @@ class AbstractActor(object):
                     await target._receive(message)
                 else:
                     #redirect since it is from a different loop
-                    print(type(message))
                     target.loop.run_until_complete(
                         target._receive(message))
             else:

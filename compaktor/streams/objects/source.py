@@ -85,6 +85,7 @@ class Source(PubSub):
         Do not overwrite.  Handles on_pull
         """
         try:
+            print("Received")
             if isinstance(message, Pull):
                 sender = message.sender
                 result = self.on_pull()
@@ -92,8 +93,8 @@ class Source(PubSub):
                     out_message = Publish(
                         Push(result, self), self)
                     try:
-                        asyncio.run_coroutine_threadsafe(
-                            sender.tell(sender, message), sender.loop)
+                        #pdb.set_trace()
+                        await self.tell(sender, out_message)
                     except Exception:
                         self.handle_fail()
         except Exception:
