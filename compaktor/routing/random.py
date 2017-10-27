@@ -20,12 +20,11 @@ class RandomRouter(BaseActor):
     Makes a random choice from the pool of actors and routes to the actor.
     """
 
-    def __init__(self,  name=None, loop=None, address=None, mailbox_size=10000,\
+    def __init__(self,  name=None, loop=None, address=None, mailbox_size=10000,
                 actors=[], inbox=None):
         if name is None:
-            name = NameCreationUtils.get_name_base()
-            name += "_"
-            name += str(int(random.random() * 1000))
+            name  = NameCreationUtils.get_name_base()
+            name = NameCreationUtils.get_name_and_number(str(name))
         if address is None:
             address = name
         super().__init__(name, loop, address, mailbox_size, inbox)

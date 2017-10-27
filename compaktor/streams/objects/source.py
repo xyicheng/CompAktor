@@ -6,9 +6,8 @@ Created on Oct 7, 2017
 '''
 
 import asyncio
-from compaktor.message.message_objects import Pull, PullQuery, Publish, Push
+from compaktor.message.message_objects import Pull, PullQuery
 from compaktor.actor.base_actor import BaseActor
-import logging
 
 
 class Source(BaseActor):
@@ -40,22 +39,23 @@ class Source(BaseActor):
 
     async def on_pull(self, payload):
         """
-        Implement the this in a separate function.
+        Handle payload for pull. Overwrite
 
-        :param payload: The payload from the message
+        :param payload: Any payload from the pull
         :type payload: object
         """
-        pass
+        return None
 
     async def __pull(self, message):
+        """
+        Perform a pull request
+        """
+        result = None
         try:
-            if message and message.sender:
-                sender = message.sender
-                load = message.payload
-                result = await self.on_pull(load)
-                out_message = Push(result, sender)
-                await self.tell(sender, out_message)
-            else:
-                logging.error("Cannot")
+            result = await self.on_pull(message.payload)
         except Exception:
             self.handle_fail()
+        return result
+
+    def start(self):
+        super().start()

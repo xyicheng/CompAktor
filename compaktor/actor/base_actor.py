@@ -14,6 +14,7 @@ from compaktor.message.message_objects import QueryMessage, PoisonPill
 from compaktor.registry import actor_registry as registry
 from compaktor.utils.name_utils import NameCreationUtils 
 from abc import abstractmethod
+import pdb
 
 
 class BaseActor(AbstractActor):
@@ -105,8 +106,7 @@ class BaseActor(AbstractActor):
         :type func: def
         """
         self._handlers[message_cls] = func
-    
-    @abstractmethod    
+
     async def _task(self):
         """
         The running task.  It is not recommended to override this function.
@@ -116,6 +116,7 @@ class BaseActor(AbstractActor):
         try:
             handler_type = type(message)
             if handler_type not in self._handlers.keys():
+                #pdb.set_trace()
                 err_msg = "Handler Does Not Exist for {}".format(handler_type)
                 raise HandlerNotFoundError(err_msg)
             handler = self._handlers[type(message)]
@@ -135,7 +136,7 @@ class BaseActor(AbstractActor):
                     logging.warning('Unhandled exception from handler of '
                                     '{0}'.format(type(message)))
                     self.handle_fail()
-            else:
+            finally:
                 if is_query and message.result:
                     message.result.set_result(response)
         except KeyError as ex:

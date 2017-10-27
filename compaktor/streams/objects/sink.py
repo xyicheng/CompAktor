@@ -9,10 +9,8 @@ import asyncio
 import logging
 from multiprocessing import cpu_count
 from compaktor.actor.base_actor import BaseActor
-from compaktor.message.message_objects import Publish, Push, Pull, Subscribe
-from compaktor.routing.round_robin import RoundRobinRouter
-from compaktor.routing.balancing import BalancingRouter
-import pdb
+from compaktor.message.message_objects import Publish, Push, Pull, RouteAsk
+from compaktor.streams.modules import provider_router
 
 
 class Sink(BaseActor):
@@ -40,82 +38,52 @@ class Sink(BaseActor):
         :type inbox: Queue()
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self.set_handlers()
-        self.__providers = None
+        self.register_sink_handlers()
+        self.__providers = provider_router.create_provider_router(
+            provider_logic, providers)
         self.__concurrency = concurrency
-        self.create_provider_router(provider_logic, providers)
 
-    def set_handlers(self):
-        self.register_handler(Publish, self.__push)
-        self.register_handler(Push, self.__push)
+    def register_sink_handlers(self):
+        self.register_handler(Pull, self.__pull)
 
-    def create_provider_router(self, provider_logic, providers):
-        try:
-            logic = provider_logic.lower().strip()
-            if logic == "round_robin":
-                self.__providers = RoundRobinRouter()
-            elif logic == "balancing":
-                self.__providers = BalancingRouter()
-        except Exception:
-            self.handle_fail()
-
-    def add_source(self, actor):
+    def add_provider(self, actor):
         """
-        Add a source to the provider router.
+        Add a provider to the router
 
-        :param actor: The provider actor
-        :type actor: AbstractActor()
+        :param actor: The actor to add to the router
+        :type actor: BaseActor
         """
-        if self.__providers:
-            sub = Subscribe(actor, self)
-            self.loop.run_until_complete(self.__providers.route_tell(sub))
-            if len(self.__providers.actor_set) <= self.__concurrency:
-                message = Publish(
-                    Pull(None, self), self)
-                self.loop.run_until_complete(
-                    self.__providers.route_tell(message))
+        provider_router.add_provider(self.__providers, actor)
 
     async def on_push(self, payload):
         """
-        Override. Handle the payload
+        Handle payload. Overwrite
 
-        :param payload: The payload from the message
+        :param payload: The payload returned by ask
         :type payload: object
         """
         pass
 
-    async def __push(self, message):
+    async def __pull(self, message):
         """
-        Handle a push request
-
-        :param message: The message from the request
-        :type message: Message()
+        Perform a pull request.
         """
+        #set the future that needs to be set
+        out_message = RouteAsk(message)
         try:
-            if message and message.sender:
-                sender = message.sender
-                load = message.payload
-                await self.on_push(load)
-                out_message = Pull(None, self)
-                await self.tell(sender, out_message)
-            else:
-                logging.error(
-                    "Message for Push Cannot Be None and Must Have a Sender")
+            oresult = await self.__providers.route_ask(out_message)
+            await self.on_push(oresult)
+            await self.tell(self, message)
         except Exception:
             self.handle_fail()
 
     def start(self):
         """
-        Specialized start method that creates an initial
-        set of pull requests based on the initial size
-        of the router.
+        Start a number of pull requests up to the max number.
         """
         super().start()
-        if self.__providers:
-            router_size = len(self.__providers.actor_set)
-            if router_size > 0:
-                for i in range(0, self.__concurrency):
-                    message = Publish(
-                        Pull(None, self), self)
-                    self.loop.run_until_complete(
-                        self.__providers.route_tell(message))
+        for i in range(0, self.__concurrency):
+            try:
+                self.loop.run_until_complete(self.tell(self, Pull))
+            except Exception:
+                self.handle_fail()

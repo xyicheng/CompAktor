@@ -8,14 +8,9 @@ Created on Oct 7, 2017
 import asyncio
 from multiprocessing import cpu_count
 from queue import Queue as PyQueue
-from compaktor.message.message_objects import Pull, DeSubscribe, Subscribe,\
-                                                Tick, Push, Publish
-from compaktor.routing.round_robin import RoundRobinRouter
-from compaktor.routing.balancing import BalancingRouter
-from compaktor.streams.objects.stage_task_actor import TaskActor
+from compaktor.message.message_objects import Pull, Push
 from compaktor.actor.base_actor import BaseActor
-import logging
-import pdb
+from compaktor.streams.modules import provider_router
 
 
 class NodePubSub(BaseActor):
@@ -28,137 +23,110 @@ class NodePubSub(BaseActor):
     def __init__(self, name, provider_logic="round_robin", providers=[],
                  loop=asyncio.get_event_loop(), address=None,
                  mailbox_size=1000, inbox=None,
-                 empty_demand_logic = "broadcast", concurrency=cpu_count(),
-                 tick_delay=120, routing_logic = "round_robin"):
+                 concurrency=cpu_count()):
         """
         Constructor
 
         :param name: Name of the actor
-        :type name: str()
+        :type name: str
         :param loop: Asyncio loop for the actor
-        :type loop: AbstractEventLoop()
+        :type loop: AbstractEventLoop
         :param address: Address for the actor
-        :type address: str()
+        :type address: str
         :param mailbox_size: Size of the mailbox
-        :type mailbox_size: int)
+        :type mailbox_size: int
         :param inbox: Actor inbox
-        :type inbox: asyncio.Queue()
+        :type inbox: asyncio.Queue
         :param empty_demand_logic: round_robin or broadcast
-        :type empty_demand_logic: str()
+        :type empty_demand_logic: str
         :param concurrency: Number concurrent tasks to run
-        :type concurrency: int()
+        :type concurrency: int
         :param routing_logic: Type of router to create
-        :type routing_logic: str()
+        :type routing_logic: str
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.__concurrency = concurrency
-        self.__routing_logic = routing_logic
-        self.__providers = None
-        self.__current_provider = 0
         self.__task_q = PyQueue()
-        self.__empty_logic = empty_demand_logic
-        self.__result_q = PyQueue()
-        self.__create_provider_router(provider_logic, providers)
-        self.set_handlers()
-        self.tick_delay = tick_delay
+        self.__providers = provider_router.create_provider_router(
+            provider_logic, providers)
+        self.__current_provider = 0
+        self.register_node_handlers()
 
-    def set_handlers(self):
+    def register_node_handlers(self):
         """
         Register handlers for message pushing
         """
-        self.register_handler(Push, self.__push)
+        self.register_handler(Push, self.__do_pull)
         self.register_handler(Pull, self.__pull)
 
-    def __create_provider_router(self, logic, actor_set=[]):
+    def add_provider(self, actor):
         """
-        Create a provider router. 
-        """
-        if logic.lower().strip() == "round_robin" or\
-            logic.lower().strip() == "broadcast":
-            self.providers = RoundRobinRouter(
-                address=self.address, actors=actor_set)
-        elif logic.lower().strip() == "balancing":
-            self.providers = BalancingRouter(
-                address=self.address, actors=actor_set)
-        if self.providers and len(actor_set) < self.__concurrency:
-            rem_conc = self.__concurrency - len(actor_set)
-            actor_addr = self.providers.address
-            for i in range(0, rem_conc):
-                actor = TaskActor(
-                    name=i, on_call=self.on_pull, address=actor_addr)
-                self.providers.add_actor(actor)
+        Add a provider to the router
 
-    def add_source(self, actor):
+        :param actor: The actor to add to the router
+        :type actor: BaseActor
         """
-        Add a source to the provider router.
+        provider_router.add_provider(self.__providers, actor)
 
-        :param actor: The provider actor
-        :type actor: AbstractActor()
+    async def __do_pull(self, message):
         """
-        if self.__providers:
-            sub = Subscribe(actor, self)
-            self.__providers.route_tell(sub)
-            if len(self.__providers.actor_set) <= self.__concurrency:
-                message = Publish(
-                    Pull(None, self), self)
-                self.loop.run_until_complete(
-                    self.__providers.route_tell(message))
+        Perform a downstream pull to be put into the queue.
 
-    async def on_pull(self, payload):
+        :param message: The pull message
+        :type message: Message
         """
-        Override. Handle the payload.
+        out_message = Pull(None, self)
+        #ask for data from beneath this actor
+        oresult = None
+        try:
+            if self.__task_q.full() is False:
+                oresult = await self.__providers.route_ask(out_message)
+                self.__task_q.put(oresult)
+                rmsg = Push(None, self)                
+                await self.tell(self, rmsg)
+            else:
+                #wait a bit and call
+                out_message = Pull(None, self)
+                await asyncio.sleep(0.1, loop=self.loop)
+                await self.tell(self, out_message)
+        except Exception:
+            self.handle_fail()
 
-        :param payload: The payload from the message
-        :type payload: Object
+    async def on_push(self, payload):
         """
-        return payload
+        Handle payload. Overwrite.
+
+        :param payload: The payload returned by ask
+        :type payload: object
+        """
+        return None 
 
     async def __pull(self, message):
         """
         Perform a pull request.
 
-        :param message: The calling message
-        :type message: Pull()
-        """
-        async def get_from_queue():
-            return self.__task_q.get()
+        :param message: The message to pull
+        :type message: Message
+        """        
+        #set the future that needs to be set
+        omsg = Pull(None, self)
+        oresult = None
         try:
-            if message and message.sender:
-                load = await get_from_queue()
-                oresult = await self.on_pull(load)
-                if oresult:
-                    sender = message.sender
-                    await self.tell(
-                        sender, oresult)
-            else:
-                logging.error("Message For PubSub was None")
+            await self.tell(self, omsg)
+            oresult = self.__task_q.get()
+            oresult = await self.on_push(oresult)
+            await self.tell(self, message)
         except Exception:
             self.handle_fail()
-
-    async def __push(self, message):
-        """
-        Perform a push request.
-
-        :param message: The calling message
-        :type message: Push() 
-        """
-        try:
-            self.__result_q.put(message)
-        except Exception:
-            self.handle_fail()
+        return oresult
 
     def start(self):
         """
-        Specialized start method that creates an initial
-        set of pull requests based on the initial size
-        of the router.
+        Start a number of pull requests up to the max number.
         """
         super().start()
-        if self.__providers:
-            router_size = len(self.__providers.actor_set)
-            if router_size > 0:
-                for i in range(0, self.__concurrency):
-                    message = Publish(
-                        Pull(None, self), self)
-                    self.loop.run_until_complete(
-                        self.__providers.route_tell(message))
+        for i in range(0, self.__concurrency):
+            try:
+                self.loop.run_until_complete(self.tell(self, Pull))
+            except Exception:
+                self.handle_fail()

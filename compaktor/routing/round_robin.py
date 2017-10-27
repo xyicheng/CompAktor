@@ -8,11 +8,14 @@ import asyncio
 from atomos import atomic
 from compaktor.actor.base_actor import BaseActor
 from compaktor.errors.actor_errors import ActorStateError
-from compaktor.message.message_objects import RouteAsk, RouteTell, DeSubscribe
+from compaktor.message.message_objects import RouteAsk, RouteTell, DeSubscribe,\
+    Subscribe
 from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
 from compaktor.utils.name_utils import NameCreationUtils
 from random import random
+from compaktor.actor.abstract_actor import AbstractActor
+import logging
 import pdb
 
 class RoundRobinRouter(BaseActor):
@@ -24,9 +27,8 @@ class RoundRobinRouter(BaseActor):
     def __init__(self, name=None, loop=None, address=None, mailbox_size=10000,
                  inbox=None, actors=[]):
         if name is None:
-            name = str(NameCreationUtils.get_name_base())
-            name += "_"
-            name += str(int(random() * 1000))
+            name = NameCreationUtils.get_name_base()
+            name = NameCreationUtils.get_name_and_number(str(name))
         if address is None:
             address = name
         super().__init__(name, loop, address, mailbox_size, inbox)
@@ -35,9 +37,34 @@ class RoundRobinRouter(BaseActor):
         self.current_index = atomic.AtomicInteger()
         self.actor_system = None
         self.sys_path = None
+        self.set_router_handlers()
+
+    def set_router_handlers(self):
+        """
+        Register the actor handlers
+        """
         self.register_handler(RouteTell, self.route_tell)
         self.register_handler(RouteAsk, self.route_ask)
         self.register_handler(DeSubscribe, self.__handle_remove)
+        self.register_handler(Subscribe, self.__handle_add)
+
+    async def __handle_add(self, message):
+        """
+        Handle actor addition
+
+        :param message: The addition message
+        :type message: Subscribe()
+        """
+        try:
+            if message:
+                actor = message.payload
+                if actor and isinstance(actor, AbstractActor):
+                    if actor not in self.actor_set:
+                        self.actor_set.append(actor)
+                else:
+                    logging.warn("Router Only Accepts Abstract Actors")
+        except Exception:
+            self.handle_fail()
 
     def set_actor_system(self, actor_system, path):
         """
@@ -128,7 +155,11 @@ class RoundRobinRouter(BaseActor):
             ind = self.current_index.get()
             if self.actor_set and len(self.actor_set) > 0:
                 actor = self.actor_set[ind % len(self.actor_set)]
-                await sender.tell(actor, message.payload)
+                if self.loop == actor.loop:
+                    await self.tell(actor, message.payload)
+                else:
+                    actor.loop.run_until_complete(
+                        actor._receive(message.payload))
                 self.current_index.get_and_add(1)
             if self.current_index.get() is len(self.actor_set):
                 self.current_index.get_and_set(0)

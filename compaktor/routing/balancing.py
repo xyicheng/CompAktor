@@ -9,11 +9,13 @@ from compaktor.structure.queue import BlockingQueue
 from compaktor.actor.base_actor import BaseActor
 from compaktor.errors.actor_errors import ActorStateError
 from compaktor.message.message_objects import RouteAsk,\
-    QueryMessage, RouteBroadcast, RouteTell
+    QueryMessage, RouteBroadcast, RouteTell, Subscribe
 from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
 from compaktor.utils.name_utils import NameCreationUtils
 from random import random
+import logging
+from compaktor.actor.abstract_actor import AbstractActor
 
 
 class BalancingRouter(BaseActor):
@@ -27,8 +29,7 @@ class BalancingRouter(BaseActor):
                  inbox=None, actors=[]):
         if name is None:
             name = NameCreationUtils.get_name_base()
-            name += "_"
-            name += str(int(random() * 1000))
+            name = NameCreationUtils.get_name_and_number(str(name))
         if address is None:
             address = name
         super().__init__(name, loop, address, mailbox_size, inbox)
@@ -37,11 +38,18 @@ class BalancingRouter(BaseActor):
         self.__queue = asyncio.Queue(maxsize=mailbox_size)
         self.__router_queue = BlockingQueue(max_size=mailbox_size)
         self.actor_set = actors
+        self.set_router_handlers()
+        self.actor_system = None
+        self.sys_path = None
+
+    def set_router_handlers(self):
+        """
+        Set the router handlers
+        """
         self.register_handler(RouteAsk, self.route_ask)
         self.register_handler(RouteTell, self.route_tell)
         self.register_handler(RouteBroadcast, self.attempt_broadcast)
-        self.actor_system = None
-        self.sys_path = None
+        self.register_handler(Subscribe, self.__handle_add)
 
     def close_queue(self):
         self.__router_queue.close()
@@ -67,6 +75,24 @@ class BalancingRouter(BaseActor):
 
         for actor in self.actor_set:
             self.actor_system.add_actor(actor, self.sys_path)
+
+    async def __handle_add(self, message):
+        """
+        Handle actor addition
+
+        :param message: The addition message
+        :type message: Subscribe()
+        """
+        try:
+            if message:
+                actor = message.payload
+                if actor and isinstance(actor, AbstractActor):
+                    if actor not in self.actor_set:
+                        self.actor_set.append(actor)
+                else:
+                    logging.warn("Router Only Accepts Abstract Actors")
+        except Exception:
+            self.handle_fail()
 
     def add_actor(self, actor):
         """
