@@ -11,6 +11,7 @@ class Message(object):
     """
     Base Message to be extended
     """
+
     def __init__(self, payload=None, sender=None):
         """
         Constructor
@@ -40,10 +41,6 @@ class TaskMessage(Message):
         self.caller = caller
 
 
-class Push(Message):
-    pass
-
-
 class PullTick(Message):
     pass
 
@@ -55,11 +52,7 @@ class QueryMessage(Message):
     result = None
 
 
-class Tick(Message):
-    pass
-
-
-class RegisterTime(Message):
+class Push(Message):
     pass
 
 
@@ -86,14 +79,12 @@ class RouteBroadcast(Message):
 class Pull(Message):
     pass
 
+
 class PullQuery(QueryMessage):
     pass
 
+
 class Publish(Message):
-    pass
-
-
-class Demand(Message):
     pass
 
 
@@ -111,6 +102,7 @@ class FlowResult(Message):
 
 class SetAccountant(Message):
     pass
+
 
 class SplitSubscribe(Message):
 

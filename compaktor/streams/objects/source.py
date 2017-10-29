@@ -6,7 +6,7 @@ Created on Oct 7, 2017
 '''
 
 import asyncio
-from compaktor.message.message_objects import Pull, PullQuery
+from compaktor.message.message_objects import Pull, PullQuery, Push
 from compaktor.actor.base_actor import BaseActor
 
 
@@ -34,6 +34,9 @@ class Source(BaseActor):
         :type inbox: Queue()
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
+        self.register_sink_handlers()
+
+    def register_sink_handlers(self):
         self.register_handler(PullQuery, self.__pull)
         self.register_handler(Pull, self.__pull)
 
@@ -50,12 +53,19 @@ class Source(BaseActor):
         """
         Perform a pull request
         """
-        result = None
+        result = []
         try:
-            result = await self.on_pull(message.payload)
+            num_els = message.payload
+            run = True
+            i = 0
+            while i < num_els and run:
+                val = await self.on_pull(message.payload)
+                if val:
+                    result.append(val)
+                else:
+                    run = False
+                i += 1
+            psh = Push(result, self)
+            await self.tell(message.sender, psh)
         except Exception:
             self.handle_fail()
-        return result
-
-    def start(self):
-        super().start()

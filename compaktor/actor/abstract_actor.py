@@ -11,8 +11,6 @@ from compaktor.utils.name_utils import NameCreationUtils
 from compaktor.registry import actor_registry as registry
 from compaktor.state.actor_state import ActorState
 from compaktor.message.message_objects import QueryMessage
-import pdb
-from pdb import Pdb
 
 
 class AbstractActor(object):
@@ -97,8 +95,6 @@ class AbstractActor(object):
         :rtype: bool()
         """
         self.__STATE = ActorState.STOPPED
-        await self._stop()
-        await self.__complete
         self.post_stop()
         return True
 
@@ -153,12 +149,8 @@ class AbstractActor(object):
             if isinstance(target, str):
                 target = registry.get_registry().find_node(target)
             if target:
-                if target.loop == self.loop:
-                    await target._receive(message)
-                else:
-                    #redirect since it is from a different loop
-                    target.loop.run_until_complete(
-                        target._receive(message))
+                asyncio.run_coroutine_threadsafe(
+                    target._receive(message), loop=target.loop)
             else:
                 print("Target Does Not Exist")
         except AttributeError as ex:
@@ -174,19 +166,19 @@ class AbstractActor(object):
         :param message:  The appropriate message to send
         :type message:  QueryMessage
         """
+        res = None
         try:
             assert isinstance(message, QueryMessage)
             if not message.result:
                 message.result = asyncio.Future(loop=target.loop)
             await self.tell(target, message)
-            res = None
             if target.loop == self.loop:
                 res = await message.result
             else:
                 res = target.loop.run_until_complete(message.result)
-            return res
         except Exception:
             self.handle_fail()
+        return res
 
     def handle_fail(self):
         """

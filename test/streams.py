@@ -6,44 +6,31 @@ Created on Oct 19, 2017
 
 import unittest
 import asyncio
+from threading import Thread
 from test.modules.streams.objects import StringSource, SplitNode, PrintSink
-from compaktor.message.message_objects import PullQuery, Publish, Push, Pull
-from compaktor.state.actor_state import ActorState
 
 
 class TestStreams(unittest.TestCase):
 
     def test_stream_with_data(self):
-        src = StringSource()
+        src_loop = asyncio.get_event_loop()
+        src = StringSource(loop=src_loop)
         src.start()
-        node = SplitNode()
-        node.add_provider(src)
-        node.start()
-        sn = PrintSink()
-        sn.add_provider(node)
-        sn.start()
-        ps = Pull(None, sn)
-        res = sn.loop.run_until_complete(
-            sn.tell(node, ps))
-        print(res)
-        res = sn.loop.run_until_complete(
-            sn.tell(node, ps))
-        print(res)
-        res = sn.loop.run_until_complete(
-            sn.tell(node, ps))
-        res = sn.loop.run_until_complete(
-            sn.tell(node, ps))
-        print(res)
-        res = sn.loop.run_until_complete(
-            sn.tell(node, ps))
-        print(res)
-        res = sn.loop.run_until_complete(
-            sn.tell(node, ps))
-        print("Done")
-        print(res)
-        #sink = PrintSink()
-        #sink.add_source(node)
-        #sink.start()
+        #src_loopb = asyncio.get_event_loop()
+        srcb = StringSource(src_num=1, loop=src_loop)
+        srcb.start()
+
+        #do_loop = asyncio.new_event_loop()
+        #node = SplitNode(loop=do_loop)
+        #node.add_actor(src)
+        #node.add_actor(srcb)
+        #node.start()
+
+        ps_loop = asyncio.get_event_loop()
+        ps = PrintSink(loop=ps_loop)
+        ps.add_provider(src)
+        ps.add_provider(srcb)
+        asyncio.get_event_loop().run_until_complete(ps.start())
         asyncio.get_event_loop().run_forever()
 
     def stest_split_stream(self):

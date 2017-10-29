@@ -18,7 +18,6 @@ class StringSource(Source):
         self.src_num = src_num
 
     async def on_pull(self, payload):
-        print("Pulling")
         self.__iteration += 1
         return "TestPull {} {}".format(
             self.src_num, self.__iteration)
@@ -53,10 +52,19 @@ class SplitNode(NodePubSub):
         print("Splitting {}".format(type(message)))
         return message.split(" ")
 
+class CountNode(NodePubSub):
+
+    def __init__(self, name="CountNode", loop=asyncio.get_event_loop()):
+        super().__init__(name, loop=loop)
+
+    async def on_pull(self, message):
+        print("Counting {}".format(type(message)))
+        return len(message)
+
 class PrintSink(Sink):
 
     def __init__(self, name="PrintSink",loop=asyncio.get_event_loop()):
         super().__init__(name=name, loop=loop)
 
-    async def on_push(self, message):
-        print(message.payload)
+    async def on_push(self, payload):
+        print(payload)

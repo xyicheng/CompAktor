@@ -6,10 +6,9 @@ Created on Oct 7, 2017
 '''
 
 import asyncio
-import logging
 from multiprocessing import cpu_count
 from compaktor.actor.base_actor import BaseActor
-from compaktor.message.message_objects import Publish, Push, Pull, RouteAsk
+from compaktor.message.message_objects import Pull, RouteAsk, RouteTell, Push
 from compaktor.streams.modules import provider_router
 
 
@@ -22,7 +21,7 @@ class Sink(BaseActor):
 
     def __init__(self, name, provider_logic="round_robin", providers=[],
                  loop=asyncio.get_event_loop(), address=None,
-                 mailbox_size=1000, inbox=None, concurrency=cpu_count()):
+                 mailbox_size=1000, inbox=None, job_size=cpu_count()):
         """
         Sink Constructor.
 
@@ -36,15 +35,18 @@ class Sink(BaseActor):
         :type mailbox_size: int()
         :param inbox: Mailbox queue to use must have get() and put() methods
         :type inbox: Queue()
+        :param job_size: The size of the job batch
+        :type job_size: int
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
         self.register_sink_handlers()
         self.__providers = provider_router.create_provider_router(
             provider_logic, providers)
-        self.__concurrency = concurrency
+        self.__job_size = job_size
 
     def register_sink_handlers(self):
         self.register_handler(Pull, self.__pull)
+        self.register_handler(Push, self.__push)
 
     def add_provider(self, actor):
         """
@@ -64,26 +66,33 @@ class Sink(BaseActor):
         """
         pass
 
+    async def __push(self, message):
+        print("Sink")
+        batch = message.payload
+        if batch and len(batch) > 0:
+            for res in batch:
+                await self.on_push(res)
+        await self.tell(self, Pull(None, self))
+
     async def __pull(self, message):
         """
         Perform a pull request.
         """
         #set the future that needs to be set
-        out_message = RouteAsk(message)
+        out_message = RouteTell(Pull(self.__job_size, message.sender))
         try:
-            oresult = await self.__providers.route_ask(out_message)
-            await self.on_push(oresult)
-            await self.tell(self, message)
+            await self.__providers.route_tell(out_message)
+            await self.tell(self, Pull(None, self))
         except Exception:
             self.handle_fail()
 
-    def start(self):
+    async def start(self):
         """
         Start a number of pull requests up to the max number.
         """
         super().start()
-        for i in range(0, self.__concurrency):
-            try:
-                self.loop.run_until_complete(self.tell(self, Pull))
-            except Exception:
-                self.handle_fail()
+        try:
+            print("Starting")
+            await self.tell(self, Pull(None, self))
+        except Exception:
+            self.handle_fail()

@@ -13,8 +13,6 @@ from compaktor.errors.actor_errors import HandlerNotFoundError
 from compaktor.message.message_objects import QueryMessage, PoisonPill
 from compaktor.registry import actor_registry as registry
 from compaktor.utils.name_utils import NameCreationUtils 
-from abc import abstractmethod
-import pdb
 
 
 class BaseActor(AbstractActor):
@@ -28,15 +26,15 @@ class BaseActor(AbstractActor):
         Constructor
 
         :param name: The actor name
-        :type name: str()
+        :type name: str
         :param loop: The actors AbstractEventLoop
-        :type loop: AbstractEventLoop()
+        :type loop: AbstractEventLoop
         :param address: The unique address for the actor
-        :type address: str()
+        :type address: str
         :param mailbox_size: The max size of the inbox
-        :type mailbox_size: int()
+        :type mailbox_size: int
         :param inbox: The inbox queue
-        :type inbox: asyncio.Queue()
+        :type inbox: asyncio.Queue
         """
         if name is None:
             name = str(NameCreationUtils.get_name_base())
@@ -116,7 +114,6 @@ class BaseActor(AbstractActor):
         try:
             handler_type = type(message)
             if handler_type not in self._handlers.keys():
-                #pdb.set_trace()
                 err_msg = "Handler Does Not Exist for {}".format(handler_type)
                 raise HandlerNotFoundError(err_msg)
             handler = self._handlers[type(message)]
@@ -130,15 +127,17 @@ class BaseActor(AbstractActor):
                     logging.warning("Sender {}".format(str(message.sender)))
                     self.handle_fail()
             except Exception as ex:
+                self.handle_fail()
                 if is_query:
                     message.result.set_exception(ex)
                 else:
                     logging.warning('Unhandled exception from handler of '
                                     '{0}'.format(type(message)))
                     self.handle_fail()
-            finally:
+            else:
                 if is_query and message.result:
                     message.result.set_result(response)
+
         except KeyError as ex:
             self.handle_fail()
             raise HandlerNotFoundError(type(message)) from ex

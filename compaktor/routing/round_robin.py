@@ -158,8 +158,8 @@ class RoundRobinRouter(BaseActor):
                 if self.loop == actor.loop:
                     await self.tell(actor, message.payload)
                 else:
-                    actor.loop.run_until_complete(
-                        actor._receive(message.payload))
+                    asyncio.run_coroutine_threadsafe(
+                        self.tell(actor, message.payload), loop=actor.loop)
                 self.current_index.get_and_add(1)
             if self.current_index.get() is len(self.actor_set):
                 self.current_index.get_and_set(0)
@@ -185,14 +185,23 @@ class RoundRobinRouter(BaseActor):
         :rtype: object
         """
         sender = self
-        if message.sender is not None:
-            sender = message.sender
-        ind = self.current_index.get()
-        await sender.ask(self.actor_set[ind], message)
-        res = await message.result
-        self.current_index.get_and_add(1)
-        if self.current_index.get() is len(self.actor_set):
-            self.current_index.get_and_set(0)
+        res = None
+        if len(self.actor_set) > 0:
+            if message.sender is not None:
+                sender = message.sender
+            ind = self.current_index.get()
+            message = message.payload
+            await sender.ask(self.actor_set[ind], message)
+            if isinstance(message, RouteAsk):
+                message = message.payload
+            res = await message.result
+            self.current_index.get_and_add(1)
+            if self.current_index.get() is len(self.actor_set):
+                self.current_index.get_and_set(0)
+        else:
+            msg = "Actor Set Size is 0 in router."
+            msg += "\n{}\n{}".format(self, message.sender)
+            logging.error(msg)
         return res
 
     async def broadcast(self, message):

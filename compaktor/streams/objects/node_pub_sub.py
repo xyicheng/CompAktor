@@ -8,10 +8,10 @@ Created on Oct 7, 2017
 import asyncio
 from multiprocessing import cpu_count
 from queue import Queue as PyQueue
-from compaktor.message.message_objects import Pull, Push
+from compaktor.message.message_objects import Pull, Push, RouteAsk, RouteTell
 from compaktor.actor.base_actor import BaseActor
 from compaktor.streams.modules import provider_router
-
+from compaktor.multiprocessing.pool import multiprocessing_pool
 
 class NodePubSub(BaseActor):
     """
@@ -21,112 +21,105 @@ class NodePubSub(BaseActor):
     """
 
     def __init__(self, name, provider_logic="round_robin", providers=[],
-                 loop=asyncio.get_event_loop(), address=None,
-                 mailbox_size=1000, inbox=None,
-                 concurrency=cpu_count()):
+                 loop=asyncio.get_event_loop(), address=None, executor=None,
+                 mailbox_size=1000, inbox=None, job_size=cpu_count()):
         """
         Constructor
 
         :param name: Name of the actor
         :type name: str
+        :param provider_logic: The logic to use in requesting a batch
+        :type provider_logic: str()
+        :param providers: The providers set
+        :type providers: list()
         :param loop: Asyncio loop for the actor
         :type loop: AbstractEventLoop
         :param address: Address for the actor
         :type address: str
+        :param executor: The executor to use
+        :type executor: Futures executor
         :param mailbox_size: Size of the mailbox
         :type mailbox_size: int
         :param inbox: Actor inbox
         :type inbox: asyncio.Queue
-        :param empty_demand_logic: round_robin or broadcast
-        :type empty_demand_logic: str
-        :param concurrency: Number concurrent tasks to run
-        :type concurrency: int
-        :param routing_logic: Type of router to create
-        :type routing_logic: str
+        :param job_size: The maximum number of records to process in a job
+        :type job_size: int
         """
         super().__init__(name, loop, address, mailbox_size, inbox)
-        self.__concurrency = concurrency
-        self.__task_q = PyQueue()
+        self.__mailbox_size = mailbox_size
+        self.__job_size = job_size
+        self.__result_q = asyncio.Queue(maxsize=mailbox_size)
         self.__providers = provider_router.create_provider_router(
             provider_logic, providers)
         self.__current_provider = 0
+        self.__executor = executor
         self.register_node_handlers()
 
     def register_node_handlers(self):
         """
         Register handlers for message pushing
         """
-        self.register_handler(Push, self.__do_pull)
-        self.register_handler(Pull, self.__pull)
+        self.register_handler(Pull, self.__push)
+        self.register_handler(Push, self.__pull)
 
-    def add_provider(self, actor):
+    async def on_pull(self, el):
         """
-        Add a provider to the router
+        Overwrite. Handle each element in a batch.
 
-        :param actor: The actor to add to the router
-        :type actor: BaseActor
+        :param el: The element to handle
+        :type el: object
         """
-        provider_router.add_provider(self.__providers, actor)
+        pass
 
-    async def __do_pull(self, message):
+    def add_actor(self, actor):
         """
-        Perform a downstream pull to be put into the queue.
+        Add an actor to the router.
 
-        :param message: The pull message
-        :type message: Message
+        :param actor: The actor to add
+        :type actor: AbstractActor
         """
-        out_message = Pull(None, self)
-        #ask for data from beneath this actor
-        oresult = None
-        try:
-            if self.__task_q.full() is False:
-                oresult = await self.__providers.route_ask(out_message)
-                self.__task_q.put(oresult)
-                rmsg = Push(None, self)                
-                await self.tell(self, rmsg)
-            else:
-                #wait a bit and call
-                out_message = Pull(None, self)
-                await asyncio.sleep(0.1, loop=self.loop)
-                await self.tell(self, out_message)
-        except Exception:
-            self.handle_fail()
-
-    async def on_push(self, payload):
-        """
-        Handle payload. Overwrite.
-
-        :param payload: The payload returned by ask
-        :type payload: object
-        """
-        return None 
+        self.__providers.add_actor(actor)
 
     async def __pull(self, message):
         """
-        Perform a pull request.
+        Pull Function servicing a push.
 
-        :param message: The message to pull
-        :type message: Message
-        """        
-        #set the future that needs to be set
-        omsg = Pull(None, self)
-        oresult = None
+        :param message: The message from push
+        :type message: object
+        """
         try:
-            await self.tell(self, omsg)
-            oresult = self.__task_q.get()
-            oresult = await self.on_push(oresult)
-            await self.tell(self, message)
+            #submit a request for a batch of at most n size
+            batch = message.payload
+            if batch:
+                if batch and len(batch) > 0:
+                    for el in batch:
+                        res = await self.on_pull(el)
+                        await self.__result_q.put(res)
+                else:
+                    await asyncio.sleep(1)
         except Exception:
             self.handle_fail()
-        return oresult
 
-    def start(self):
+    async def __push(self, message):
         """
-        Start a number of pull requests up to the max number.
+        Push function servicing a pull.
+
+        :param message: The message from pull
+        :type message: object
         """
-        super().start()
-        for i in range(0, self.__concurrency):
-            try:
-                self.loop.run_until_complete(self.tell(self, Pull))
-            except Exception:
-                self.handle_fail()
+        out_batch = []
+        try:
+            num_els = message.payload
+            i = 0
+            while i < num_els and self.__result_q.empty() is False:
+                print("Getting")
+                res = await self.__result_q.get()
+                out_batch.append(res)
+                i += 1
+            req_size = self.__job_size - self.__mailbox_size
+            gmsg = Pull(req_size, self)
+            pmsg = Push(out_batch, self)
+            await self.__providers.route_tell(RouteTell(gmsg, self))
+            await self.tell(message.sender, pmsg)
+        except Exception:
+            self.handle_fail()
